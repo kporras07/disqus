@@ -2,7 +2,7 @@
 // $Id$
 
 /**
- * Menu callback; Displays the administration settings for Disqus.
+ * Displays the administration settings for Disqus.
  */
 function disqus_admin_settings() {
   $form = array();

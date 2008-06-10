@@ -16,12 +16,12 @@ function disqus_perm() {
  */
 function disqus_menu() {
   $items = array();
-  $items['admin/settings/disqus'] = array(
-    'title' => 'Disqus',
-    'access arguments' => array('administer disqus'),
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('disqus_admin_settings'),
-    'file' => 'disqus.admin.inc'
+  $items[] = array(
+    'path' => 'admin/settings/disqus',
+    'title' => t('Disqus'),
+    'access' => user_access('administer disqus'),
+    'callback' => 'drupal_get_form',
+    'callback arguments' => array('disqus_admin_settings_menu'),
   );
   return $items;
 }
@@ -101,4 +101,12 @@ EOT;
     }
   }
   return $links;
+}
+
+/**
+ * Menu callback; Displays the administration settings for Disqus.
+ */
+function disqus_admin_settings_menu() {
+  require_once(drupal_get_path('module', 'disqus') .'/disqus.admin.inc');
+  return disqus_admin_settings();
 }
