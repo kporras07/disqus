@@ -2,6 +2,23 @@
 // $Id$
 
 /**
+ * Implementation of hook_help().
+ */
+function disqus_help($section) {
+  switch ($section) {
+  case 'admin/help#disqus':
+    $output = '<p>'. t('Uses the <a href="@disqus">Disqus</a> comment system to enhance comments.', array('@disqus' => 'http://disqus.com')) .'</p>';
+    $output.= '<h3>'. t('Installation') .'</h3>';
+    $output.= '<ol><li>'. t('Register your site information at <a href="http://disqus.com">Disqus</a>') .'</li>';
+    $output.= '<li>'. t('In the <a href="@configuration">Disqus configuration</a>, set the domain to what you registered with Disqus, and what node types you would like to have comments', array('@configuration' => url('admin/settings/disqus'))) .'</li>';
+    $output.= '<li>'. t('Visit the <a href="@permissions">permissions</a>, and set which users you would like to have the ability to view Disqus threads (recommended for role)', array('@permissions' => url('admin/user/access', NULL, 'module-disqus'))) .'</li></ol>';
+    return $output;
+  case 'admin/settings/disqus':
+    return '<p>'. t('The following provides the configuration options for the <a href="@disqus">Disqus</a> comment web service.', array('@disqus' => 'http://disqus.com')) .'</p>';
+  }
+}
+
+/**
  * Implementation of hook_perm().
  */
 function disqus_perm() {
@@ -14,15 +31,18 @@ function disqus_perm() {
 /**
  * Implementation of hook_menu().
  */
-function disqus_menu() {
+function disqus_menu($may_cache) {
   $items = array();
-  $items[] = array(
-    'path' => 'admin/settings/disqus',
-    'title' => t('Disqus'),
-    'access' => user_access('administer disqus'),
-    'callback' => 'drupal_get_form',
-    'callback arguments' => array('disqus_admin_settings_menu'),
-  );
+  if ($may_cache) {
+    $items[] = array(
+      'path' => 'admin/settings/disqus',
+      'title' => t('Disqus'),
+      'description' => t('Provides configuration options for the Disqus comment system.'),
+      'access' => user_access('administer disqus'),
+      'callback' => 'drupal_get_form',
+      'callback arguments' => array('disqus_admin_settings_menu'),
+    );
+  }
   return $items;
 }
 
