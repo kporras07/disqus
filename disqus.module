@@ -51,43 +51,87 @@ function disqus_menu($may_cache) {
  */
 function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
   switch ($op) {
-    case 'view':
-      // Only show comments on the full non-teasered page
-      if (!$a3 && $a4) {
-        // See if we're to display Disqus
-        $types = variable_get('disqus_nodetypes', array());
-        if (!empty($types[$node->type]) && user_access('view disqus comments')) {
-          // Check which Disqus domain to use
-          $domain = variable_get('disqus_domain', '');
-          if (!empty($domain)) {
-            // Build the absolute URL without the alias for the disqus_url flag
-            global $base_url;
-            $url = $base_url .'/node/'. $node->nid;
+    case 'load':
+      // See if Disqus is active on this node.
+      $types = variable_get('disqus_nodetypes', array());
+      if (!empty($types[$node->type])) {
+        // Check which Disqus domain to use.
+        $domain = variable_get('disqus_domain', '');
+        if (!empty($domain)) {
+          // Save the data to the node object.
+          $node->disqus = array('domain' => $domain);
 
-            // Build the message excerpt
-            $message = nl2br($node->teaser);
-            $message = str_replace("\r", ' ', $message);
-            $message = str_replace("\n", ' ', $message);
-            $message = strip_tags($message, '');
-            $message = check_plain($message);
+          // Build the absolute URL without the alias for the disqus_url flag.
+          global $base_url;
+          $node->disqus['url'] = $base_url . '/node/'. $node->nid;
 
-            // Build the title
-            $title = check_plain($node->title);
+          // Build the message excerpt.
+          $message = nl2br($node->teaser);
+          $message = str_replace("\r", ' ', $message);
+          $message = str_replace("\n", ' ', $message);
+          $message = strip_tags($message);
+          $node->disqus['message'] = check_plain($message);
 
-            // Inject the script
-            $disqus_developer = variable_get('disqus_developer', FALSE) ? 'var disqus_developer = 1;' : '';
-            $disqus = "<script type=\"text/javascript\">var disqus_url = \"$url\";var disqus_title = \"$title\";var disqus_message = \"$message\";$disqus_developer</script><div id=\"disqus_thread\"></div><script type=\"text/javascript\" src=\"http://disqus.com/forums/$domain/embed.js\"></script><noscript><a href=\"http://$domain.disqus.com/?url=ref\">View the forum thread.</a></noscript>";
-            $node->content['disqus'] = array(
-              '#value' => $disqus,
-              '#weight' => 10,
-            );
+          // Build the title.
+          $node->disqus['title'] = check_plain($node->title);
+
+          // Provide the identifier.
+          $node->disqus['identifier'] = 'node/' . $node->nid;
+
+          // Inject the script.
+          if ($developer = variable_get('disqus_developer', FALSE)) {
+            $node->disqus['developer'] = $developer;
           }
+        }
+      }
+      break;
+    case 'view':
+      // See if we are to display Disqus in the current context.
+      if (!$a3 && $a4 && isset($node->disqus)) {
+        if (user_access('view disqus comments') && variable_get('disqus_location', 'content_area') == 'content_area') {
+          // Inject the comments into the node content area.
+          $node->content['disqus'] = array(
+            '#value' => theme('disqus_comments', $node->disqus),
+            '#weight' => variable_get('disqus_weight', 50),
+          );
         }
       }
     break;
   }
 }
 
+/**
+ * Implementation of hook_footer().
+ *
+ * @param $disqus_options
+ *   The options to pass off to the Disqus comments.
+ */
+function disqus_footer($main = 0, $disqus_options = NULL) {
+  static $disqus = FALSE;
+  if (isset($disqus_options)) {
+    $disqus = $disqus_options;
+  }
+  if ($disqus) {
+    $domain = variable_get('disqus_domain', '');
+    if (!empty($domain)) {
+      $output = '<script type="text/javascript">';
+      if ($disqus['developer']) {
+        $output .= 'var disqus_developer = 1;';
+      }
+      $output .= 'var disqus_url = '. drupal_to_js($disqus['url']) .';';
+      $output .= 'var disqus_title = '. drupal_to_js($disqus['title']) .';';
+      $output .= 'var disqus_message = '. drupal_to_js($disqus['message']) .';';
+      $output .= 'var disqus_identifier = '. drupal_to_js($disqus['identifier']) .';';
+      global $user;
+      if ($user->uid > 0) {
+        $output .= 'var disqus_def_name = '. drupal_to_js($user->name) .';';
+        $output .= 'var disqus_def_email = '. drupal_to_js($user->mail) .';';
+      }
+      $output .= "</script><script type='text/javascript' src='http://disqus.com/forums/$domain/embed.js'></script>";
+      return $output;
+    }
+  }
+}
 
 /**
  * Implementation of hook_link().
@@ -147,66 +191,71 @@ function disqus_block($op = 'list', $delta = 0, $edit = array()) {
       'disqus_popular_threads' => array('info' => t('Disqus Popular Threads')),
       'disqus_top_commenters' => array('info' => t('Disqus Top Commenters')),
       'disqus_combination_widget' => array('info' => t('Disqus Combination Widget')),
+      'disqus_comments' => array('info' => t('Disqus: Comments')),
     );
   case 'configure':
     $form = array();
-    $form[$delta .'_items'] = array(
-      '#type' => 'select',
-      '#title' => t('Number of items to show'),
-      '#options' => array(1 => 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20),
-      '#default_value' => variable_get($delta .'_items', 5),
-    );
-    $form[$delta .'_showavatars'] = array(
-      '#type' => 'select',
-      '#title' => t('Show avatars'),
-      '#options' => array(FALSE => t('No'), TRUE => t('Yes')),
-      '#default_value' => variable_get($delta .'_showavatars', TRUE),
-      '#access' => ($delta == 'disqus_recent_comments') || ($delta == 'disqus_top_commenters'),
-    );
-    $form[$delta .'_avatarsize'] = array(
-      '#type' => 'select',
-      '#title' => t('Avatar size'),
-      '#options' => array(
-        24 => t('X-Small (24px)'),
-        32 => t('Small (32px)'),
-        48 => t('Medium (48px)'),
-        92 => t('Large (92px)'),
-        128 => t('X-Large (128px)'),
-      ),
-      '#default_value' => variable_get($delta .'_avatarsize', 32),
-      '#access' => $form[$delta .'_showavatars']['#access'],
-    );
-    $form[$delta .'_colortheme'] = array(
-      '#type' => 'select',
-      '#title' => t('Color Theme'),
-      '#options' => array(
-        'blue' => t('Blue'),
-        'grey' => t('Grey'),
-        'green' => t('Green'),
-        'red' => t('Red'),
-        'orange' => t('Orange'),
-      ),
-      '#default_value' => variable_get($delta .'_colortheme', 'blue'),
-      '#access' => $delta == 'disqus_combination_widget'
-    );
-    $form[$delta .'_defaulttabview'] = array(
-      '#type' => 'select',
-      '#title' => t('Default Tab View'),
-      '#options' => array(
-        'people' => t('People'),
-        'recent' => t('Recent'),
-        'popular' => t('Popular'),
-      ),
-      '#default_value' => variable_get($delta .'_defaulttabview', 'people'),
-      '#access' => $delta == 'disqus_combination_widget'
-    );
+    if ($delta != 'disqus_comments') {
+      $form[$delta .'_items'] = array(
+        '#type' => 'select',
+        '#title' => t('Number of items to show'),
+        '#options' => array(1 => 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20),
+        '#default_value' => variable_get($delta .'_items', 5),
+      );
+      $form[$delta .'_showavatars'] = array(
+        '#type' => 'select',
+        '#title' => t('Show avatars'),
+        '#options' => array(FALSE => t('No'), TRUE => t('Yes')),
+        '#default_value' => variable_get($delta .'_showavatars', TRUE),
+        '#access' => ($delta == 'disqus_recent_comments') || ($delta == 'disqus_top_commenters'),
+      );
+      $form[$delta .'_avatarsize'] = array(
+        '#type' => 'select',
+        '#title' => t('Avatar size'),
+        '#options' => array(
+          24 => t('X-Small (24px)'),
+          32 => t('Small (32px)'),
+          48 => t('Medium (48px)'),
+          92 => t('Large (92px)'),
+          128 => t('X-Large (128px)'),
+        ),
+        '#default_value' => variable_get($delta .'_avatarsize', 32),
+        '#access' => $form[$delta .'_showavatars']['#access'],
+      );
+      $form[$delta .'_colortheme'] = array(
+        '#type' => 'select',
+        '#title' => t('Color Theme'),
+        '#options' => array(
+          'blue' => t('Blue'),
+          'grey' => t('Grey'),
+          'green' => t('Green'),
+          'red' => t('Red'),
+          'orange' => t('Orange'),
+        ),
+        '#default_value' => variable_get($delta .'_colortheme', 'blue'),
+        '#access' => $delta == 'disqus_combination_widget'
+      );
+      $form[$delta .'_defaulttabview'] = array(
+        '#type' => 'select',
+        '#title' => t('Default Tab View'),
+        '#options' => array(
+          'people' => t('People'),
+          'recent' => t('Recent'),
+          'popular' => t('Popular'),
+        ),
+        '#default_value' => variable_get($delta .'_defaulttabview', 'people'),
+        '#access' => $delta == 'disqus_combination_widget'
+      );
+    }
     return $form;
   case 'save':
-    variable_set($delta .'_items', $edit[$delta .'_items']);
-    variable_set($delta .'_showavatars', $edit[$delta .'_showavatars']);
-    variable_set($delta .'_avatarsize', $edit[$delta .'_avatarsize']);
-    variable_set($delta .'_colortheme', $edit[$delta .'_colortheme']);
-    variable_set($delta .'_defaulttabview', $edit[$delta .'_defaulttabview']);
+    if ($delta != $disqus_comments) {
+      variable_set($delta .'_items', $edit[$delta .'_items']);
+      variable_set($delta .'_showavatars', $edit[$delta .'_showavatars']);
+      variable_set($delta .'_avatarsize', $edit[$delta .'_avatarsize']);
+      variable_set($delta .'_colortheme', $edit[$delta .'_colortheme']);
+      variable_set($delta .'_defaulttabview', $edit[$delta .'_defaulttabview']);
+    }
   break;
   case 'view':
     $num_items = variable_get($delta .'_items', 5);
@@ -242,9 +291,41 @@ EOT;
 <script type="text/javascript" src="http://disqus.com/forums/$domain/combination_widget.js?num_items=$num_items&color=$color&default_tab=$default_tab"></script>
 EOT;
       break;
+      case 'disqus_comments':
+        // Only display Diqus comments in the block if desired.
+        if ((variable_get('disqus_location', 'content_area') == 'block') && user_access('view disqus comments')) {
+          // Check for displaying on nodes.
+          switch (arg(0)) {
+            case 'node':
+              $nid = arg(1);
+              if (is_numeric($nid)) {
+                $node = node_load($nid);
+                if (isset($node->disqus)) {
+                  $content = theme('disqus_comments', $node->disqus);
+                }
+              }
+              break;
+          }
+        }
+        break;
       }
       return array('subject' => $subject, 'content' => $content);
     }
   break;
   }
+}
+
+/**
+ * Renders the JavaScript to display the Disqus thread for the current page.
+ * @param $options
+ *   An array containing the following items:
+ *     - "domain": The domain associated with this Disqus account.
+ *     - "title": The title of the thread.
+ *     - "message": The teaser of the thread.
+ *     - "developer": Whether or not testing is enabled.
+ *     - "url": The disqus_url variable (http://disqus.com/docs/help/#faq-16).
+ */
+function theme_disqus_comments($options = array()) {
+  disqus_footer(0, $options);
+  return '<div id="disqus_thread"></div><noscript><a href="http://'. $options['domain'] .'.disqus.com/?url='. urlencode($options['url']) .'">'. t('View the discussion thread.') .'</a></noscript>';
 }
