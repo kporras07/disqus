@@ -54,7 +54,8 @@ function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
     case 'load':
       // See if Disqus is active on this node.
       $types = variable_get('disqus_nodetypes', array());
-      if (!empty($types[$node->type])) {
+      $arg2 = arg(2);
+      if (!empty($types[$node->type]) && empty($arg2) || $arg2 == 'view') {
         // Check which Disqus domain to use.
         $domain = variable_get('disqus_domain', '');
         if (!empty($domain)) {
