@@ -141,15 +141,15 @@ function disqus_footer($main = 0, $disqus_options = NULL) {
  * Implementation of hook_link().
  */
 function disqus_link($type, $node = NULL, $teaser = FALSE) {
+  global $base_url;
   $links = array();
   if ($type == 'node' && $teaser == TRUE) {
     $types = variable_get('disqus_nodetypes', array());
     if (!empty($types[$node->type]) && user_access('view disqus comments')) {
       $links['disqus_comments'] = array(
         'title' => t('Comments'),
-        'href' => "node/$node->nid",
+        'href' => $base_url . '/node/' . $node->nid . '#disqus_thread',
         'attributes' => array('title' => t('Jump to the comments of this posting.')),
-        'fragment' => 'disqus_thread',
       );
       static $disqus_js_added = FALSE;
       if ($disqus_js_added === FALSE) {
