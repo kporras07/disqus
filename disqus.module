@@ -419,6 +419,13 @@ function theme_disqus_comments_num($domain, $path = NULL, $text = NULL) {
 }
 
 /**
+* Implementation of hook_view_api().
+*/
+function disqus_views_api() {
+  return array('api' => 2);
+}
+
+/**
  * Creates an instance of the Disqus PHP API.
  *
  * @param $user_api_key

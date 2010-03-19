@@ -2,37 +2,32 @@
 // $Id$
 
 /**
- * Implementation of hook_views_data().
- */
-function disqus_views_data() {
+* Implementation of hook_views_data_alter.
+*/
+function disqus_views_data_alter(&$data) {
   // Number of Disqus comments made on the given node.
   $data['node']['disqus_comments'] = array(
     'field' => array(
       'title' => t('Disqus: Comments'),
-      'help' => t('The number of Disqus comments made on the node.'),
+      'help' => t('The number of Disqus comments made on the node. Note that this will not work in the preview.'),
       'handler' => 'views_handler_field_node_disqus_comments',
     ),
   );
-  return $data;
 }
 
 /**
- * Field handler to present the number of Disqus comments on a node.
- */
-class views_handler_field_node_disqus_comments extends views_handler_field_node_link {
-  function construct() {
-    parent::construct();
-    $this->additional_fields['type'] = 'type';
-  }
-
-  /**
-   * When rendering the field.
-   */
-  function render($values) {
-    // Ensure Disqus comments are available on the node user has access to edit this node.
-    $node = node_load($this->aliases['nid']);
-    if (user_access('view disqus comments') && isset($node->disqus)) {
-      return theme('disqus_comments_num', $node->disqus);
-    }
-  }
+* Implementation of hook_views_handlers().
+*/
+function disqus_views_handlers() {
+  return array(
+    'info' => array(
+      'path' => drupal_get_path('module', 'disqus') . '/include',
+    ),
+    'handlers' => array(
+      // field handlers
+      'views_handler_field_node_disqus_comments' => array(
+        'parent' => 'views_handler_field',
+      ),
+    ),
+  );
 }
