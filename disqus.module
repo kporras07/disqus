@@ -97,13 +97,20 @@ function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
       break;
     case 'view':
       // See if we are to display Disqus in the current context.
-      if (!$a3 && $a4 && isset($node->disqus)) {
-        if (user_access('view disqus comments') && variable_get('disqus_location', 'content_area') == 'content_area') {
-          // Inject the comments into the node content area.
-          $node->content['disqus'] = array(
-            '#value' => theme('disqus_comments', $node->disqus),
-            '#weight' => variable_get('disqus_weight', 50),
-          );
+      if (!$a3 && $a4 && isset($node->disqus) && user_access('view disqus comments')) {
+        // Inject Disqus into the node object.
+        switch (variable_get('disqus_location', 'content_area')) {
+          case 'content_area':
+            // Inject into the node content.
+            $node->content['disqus'] = array(
+              '#value' => theme('disqus_comments', $node->disqus),
+              '#weight' => variable_get('disqus_weight', 50),
+            );
+            break;
+          case 'variable':
+            // Inject it into a variable.
+            $node->disqus_comments = theme('disqus_comments', $node->disqus);
+            break;
         }
       }
       break;
@@ -147,12 +154,20 @@ function disqus_user($op, &$edit, &$account, $category = NULL) {
       }
       break;
     case 'view':
-      if (user_access('view disqus comments') && variable_get('disqus_location', 'content_area') == 'content_area') {
-        if (isset($account->disqus)) {
-          $account->content['disqus'] = array(
-            '#value' => theme('disqus_comments', $account->disqus),
-            '#weight' => variable_get('disqus_weight', 50),
-          );
+      if (isset($account->disqus) && user_access('view disqus comments')) {
+        // Inject Disqus into the user object.
+        switch (variable_get('disqus_location', 'content_area')) {
+          case 'content_area':
+            // Inject into the user content.
+            $account->content['disqus'] = array(
+              '#value' => theme('disqus_comments', $account->disqus),
+              '#weight' => variable_get('disqus_weight', 50),
+            );
+            break;
+          case 'variable':
+            // Inject it into a variable.
+            $account->disqus_comments = theme('disqus_comments', $account->disqus);
+            break;
         }
       }
     break;
