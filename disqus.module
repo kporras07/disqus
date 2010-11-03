@@ -55,65 +55,118 @@ function disqus_menu() {
  * Implementation of hook_nodeapi().
  */
 function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
-  switch ($op) {
-    case 'load':
-      // See if Disqus is active on this node.
-      $types = variable_get('disqus_nodetypes', array());
-      if (!empty($types[$node->type])) {
-        // Check which Disqus domain to use.
-        $domain = variable_get('disqus_domain', '');
-        if (!empty($domain)) {
-          // Save the data to the node object.
-          $node->disqus = array('domain' => $domain);
+  // See if Disqus is active on this node.
+  $types = variable_get('disqus_nodetypes', array());
+  if (!empty($types[$node->type])) {
+    switch ($op) {
+      case 'validate':
+        $node->disqus['status'] = $node->disqus_status;
+        unset($node->disqus_status);
+        break;
+      case 'load':
+          // Check which Disqus domain to use.
+          $domain = variable_get('disqus_domain', '');
+          if (!empty($domain)) {
+            // Save the data to the node object.
 
-          // Build the absolute URL without the alias for the disqus_url flag.
-          $node->disqus['url'] = url("node/$node->nid", array(
-            'alias' => TRUE,
-            'absolute' => TRUE,
-          ));
+            $node->disqus = array('domain' => $domain);
 
-          // Build the message excerpt.
-          $message = nl2br($node->teaser);
-          $message = str_replace("\r", ' ', $message);
-          $message = str_replace("\n", ' ', $message);
-          $message = strip_tags($message);
-          $node->disqus['message'] = check_plain($message);
+            // Apply the Disqus status to the node.
+            $status = db_fetch_object(db_query("SELECT status FROM {disqus} WHERE nid = %d", $node->nid));
+            $node->disqus['status'] = isset($status->status) ? (bool)$status->status : TRUE;
 
-          // Build the title.
-          $node->disqus['title'] = check_plain($node->title);
+            // Build the absolute URL without the alias for the disqus_url flag.
+            $node->disqus['url'] = url("node/$node->nid", array(
+              'alias' => TRUE,
+              'absolute' => TRUE,
+            ));
 
-          // Provide the identifier.
-          $node->disqus['identifier'] = 'node/' . $node->nid;
+            // Build the message excerpt.
+            $message = nl2br($node->teaser);
+            $message = str_replace("\r", ' ', $message);
+            $message = str_replace("\n", ' ', $message);
+            $message = strip_tags($message);
+            $node->disqus['message'] = check_plain($message);
 
-          // The developer flag must always be set when the node is unpublished.
-          if ($node->status == 0) {
-            $node->disqus['developer'] = 1;
+            // Build the title.
+            $node->disqus['title'] = check_plain($node->title);
+
+            // Provide the identifier.
+            $node->disqus['identifier'] = 'node/' . $node->nid;
+
+            // The developer flag must always be set when the node is unpublished.
+            if ($node->status == 0) {
+              $node->disqus['developer'] = 1;
+            }
+            elseif ($developer = variable_get('disqus_developer', FALSE)) {
+              $node->disqus['developer'] = intval($developer);
+            }
           }
-          elseif ($developer = variable_get('disqus_developer', FALSE)) {
-            $node->disqus['developer'] = intval($developer);
+          break;
+      case 'delete':
+        db_query('DELETE FROM {disqus} WHERE nid = %d', $node->nid);
+        break;
+      case 'insert':
+        $data = array(
+          'nid' => $node->nid,
+          'status' => $node->disqus_status,
+        );
+        drupal_write_record('disqus', $data);
+        break;
+      case 'update':
+        // Write the status to the table, taking the node ID as the update key.
+        $data = array(
+          'nid' => $node->nid,
+          'status' => $node->disqus_status,
+        );
+        drupal_write_record('disqus', $data, array('nid'));
+        break;
+      case 'view':
+        // See if we are to display Disqus in the current context.
+        if (!$a3 && $a4 && isset($node->disqus) && user_access('view disqus comments') && $node->disqus['status'] == 1) {
+          // Inject Disqus into the node object.
+          switch (variable_get('disqus_location', 'content_area')) {
+            case 'content_area':
+              // Inject into the node content.
+              $node->content['disqus'] = array(
+                '#value' => theme('disqus_comments', $node->disqus),
+                '#weight' => variable_get('disqus_weight', 50),
+              );
+              break;
+            case 'variable':
+              // Inject it into a variable.
+              $node->disqus_comments = theme('disqus_comments', $node->disqus);
+              break;
           }
         }
-      }
-      break;
-    case 'view':
-      // See if we are to display Disqus in the current context.
-      if (!$a3 && $a4 && isset($node->disqus) && user_access('view disqus comments')) {
-        // Inject Disqus into the node object.
-        switch (variable_get('disqus_location', 'content_area')) {
-          case 'content_area':
-            // Inject into the node content.
-            $node->content['disqus'] = array(
-              '#value' => theme('disqus_comments', $node->disqus),
-              '#weight' => variable_get('disqus_weight', 50),
-            );
-            break;
-          case 'variable':
-            // Inject it into a variable.
-            $node->disqus_comments = theme('disqus_comments', $node->disqus);
-            break;
-        }
-      }
-      break;
+        break;
+    }
+  }
+}
+
+/**
+ * Implementation of hook_form_alter().
+ */
+function disqus_form_alter(&$form, $form_state, $form_id) {
+  $types = variable_get('disqus_nodetypes', array());
+  if (!empty($types[$form['type']['#value']]) && isset($form['type']) && isset($form['#node']) && $form['type']['#value'] .'_node_form' == $form_id) {
+    // Add the Disqus settings into the Comment settings fieldset if it exists.
+    if (!isset($form['comment_settings'])) {
+      $form['comment_settings'] = array(
+        '#type' => 'fieldset',
+        '#access' => user_access('view disqus comments'),
+        '#title' => t('Comment settings'),
+        '#collapsible' => TRUE,
+        '#collapsed' => TRUE,
+        '#weight' => 30,
+      );
+    }
+    $node = $form['#node'];
+    $form['comment_settings']['disqus_status'] = array(
+      '#type' => 'checkbox',
+      '#title' => t('Enable Disqus comments'),
+      '#default_value' => isset($node->disqus['status']) ? $node->disqus['status'] : TRUE,
+    );
   }
 }
 
@@ -126,7 +179,7 @@ function disqus_user($op, &$edit, &$account, $category = NULL) {
       // Only show on the profile if desired. Don't show on the administrator's profile.
       if (user_access('display disqus comments on profile', $account) && $account->uid != 1) {
         // Check which Disqus domain to use.
-        $domain = variable_get('disqus_domain', '');
+        $domain = variable_get('disqus_domain', NULL);
         if (!empty($domain)) {
           // Save the data to the user object.
           $account->disqus = array('domain' => $domain);
@@ -180,10 +233,10 @@ function disqus_user($op, &$edit, &$account, $category = NULL) {
 function disqus_link($type, $node = NULL, $teaser = FALSE) {
   $links = array();
   // Only show the Disqus links on node teasers.
-  if ($type == 'node' && $teaser == TRUE) {
+  if ($type == 'node' && $teaser == TRUE && $node->disqus['status'] == 1) {
     // Make sure the context is correct.
     $types = variable_get('disqus_nodetypes', array());
-    $domain = variable_get('disqus_domain', '');
+    $domain = variable_get('disqus_domain', NULL);
     if (!empty($types[$node->type]) && user_access('view disqus comments') && !empty($domain)) {
       // Construct the path and inject it into the links area.
       $path = url("node/$node->nid", array(
@@ -315,7 +368,10 @@ EOT;
           switch ($item['path']) {
             case 'node/%':
               if ($disqus = isset($item['page_arguments'][0]->disqus) ? $item['page_arguments'][0]->disqus : FALSE) {
-                $content = theme('disqus_comments', $disqus);
+                // Only present the comments if they are enabled on the node.
+                if ($disqus['status']) {
+                  $content = theme('disqus_comments', $disqus);
+                }
               }
               break;
             case 'user/%':
@@ -373,7 +429,7 @@ function disqus_theme() {
   return array(
     'disqus_comments' => array(
       'arguments' => array(
-  	  	'options' => NULL,
+        'options' => NULL,
       ),
     ),
     'disqus_comments_num' => array(
@@ -402,7 +458,7 @@ function theme_disqus_comments($options = array()) {
 
 /**
  * Renders the JavaScript to change all Disqus comment links to the correct number of comments.
- * 
+ *
  * @param $domain
  *   The Disqus domain associated with this account.
  * @param $path
@@ -434,8 +490,8 @@ function theme_disqus_comments_num($domain, $path = NULL, $text = NULL) {
 }
 
 /**
-* Implementation of hook_view_api().
-*/
+ * Implementation of hook_view_api().
+ */
 function disqus_views_api() {
   return array('api' => 2);
 }
