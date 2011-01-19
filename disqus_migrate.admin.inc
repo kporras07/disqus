@@ -112,6 +112,12 @@ function disqus_migrate_admin_settings_export_submit($form, &$form_state) {
   $user_api_key = variable_get('disqus_userapikey', '');
   $disqus = disqus($user_api_key);
 
+  $node_types = variable_get('disqus_nodetypes', array());
+  foreach ($node_types as $type) {
+    if ($type) $types[] = "'$type'";
+  }
+  $types = implode(', ', $types);
+
   // Retrieve the forum ID.
   $domain = variable_get('disqus_domain', '');
   $forum_id = NULL;
@@ -146,6 +152,7 @@ function disqus_migrate_admin_settings_export_submit($form, &$form_state) {
     INNER JOIN {node} n ON n.nid = c.nid
     LEFT JOIN {disqus_migrate_export} d ON d.cid = c.cid AND d.fid = %d
     WHERE d.did IS NULL AND c.status IN (%s)
+    " . (!empty($types) ? "AND n.type IN ($types)" : '') . "
     ORDER BY c.timestamp ASC", $forum_id, ($form_state['values']['disqus_moderated'] ? '0,1' : '0'));
 
   $count = 0;
