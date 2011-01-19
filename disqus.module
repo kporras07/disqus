@@ -149,7 +149,7 @@ function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
  */
 function disqus_form_alter(&$form, $form_state, $form_id) {
   $types = variable_get('disqus_nodetypes', array());
-  if (!empty($types[$form['type']['#value']]) && isset($form['type']) && isset($form['#node']) && $form['type']['#value'] .'_node_form' == $form_id) {
+  if (isset($form['type']) && isset($form['#node']) && !empty($types[$form['type']['#value']]) && $form['type']['#value'] .'_node_form' == $form_id) {
     // Add the Disqus settings into the Comment settings fieldset if it exists.
     if (!isset($form['comment_settings'])) {
       $form['comment_settings'] = array(
