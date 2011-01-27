@@ -153,7 +153,7 @@ function disqus_migrate_admin_settings_export_submit($form, &$form_state) {
     LEFT JOIN {disqus_migrate_export} d ON d.cid = c.cid AND d.fid = %d
     WHERE d.did IS NULL AND c.status IN (%s)
     " . (!empty($types) ? "AND n.type IN ($types)" : '') . "
-    ORDER BY c.timestamp ASC", $forum_id, ($form_state['values']['disqus_moderated'] ? '0,1' : '0'));
+    ORDER BY n.created DESC", $forum_id, ($form_state['values']['disqus_moderated'] ? '0,1' : '0'));
 
   $count = 0;
   while ($comment = db_fetch_object($results)) {      
@@ -161,10 +161,17 @@ function disqus_migrate_admin_settings_export_submit($form, &$form_state) {
 
     // Check if a thread exists for this node on disqus.
     $thread = $disqus->get_thread_by_url($url);
-    if (!$thread) {
-      $thread = $disqus->thread_by_identifier("node-{$comment->nid}", $comment->node_title)->thread;      
-      $disqus->update_thread($thread->id, array('url' => $url));
+    if (!$nid_thread[$comment->nid]) {
       $thread = $disqus->get_thread_by_url($url);
+      if (!$thread) {
+        $thread = $disqus->thread_by_identifier("node-{$comment->nid}", $comment->node_title)->thread;      
+        $disqus->update_thread($thread->id, array('url' => $url));
+        $thread = $disqus->get_thread_by_url($url);
+        $nid_thread[$comment->nid] = $thread;
+      }
+    }
+    else {
+      $thread = $nid_thread[$comment->nid];
     }
 
     // If thread still isn't found, skip this comment (for now).
@@ -179,7 +186,18 @@ function disqus_migrate_admin_settings_export_submit($form, &$form_state) {
     }
 
     // Create the comment in the thread on disqus.
-    $post = $disqus->create_post($thread->id, $comment->comment, $comment->name, $comment->mail ? $comment->mail : $comment->user_mail, array(
+    $mail = ($comment->mail !== '' ? $comment->mail : $comment->user_mail);
+    $name = ($comment->name !== '' ? $comment->name : substr($mail, 0, strpos($mail, '@')));
+
+    // Disqus requires both mail and name. Give them an anonymous mail/name if not provided.
+    if (empty($mail)) {
+      $mail = t('anon@anonymous.com');
+    }
+    if (empty($name)) {
+      $name = t('Anonymous');
+    }
+
+    $post = $disqus->create_post($thread->id, $comment->comment, $name, $mail, array(
       'created_at' => format_date($comment->timestamp, 'custom', 'Y-m-d\TH:i', 0),
       'ip_address' => $comment->ip_address ? $comment->ip_address : '127.0.0.1',
       'parent_post' => $parent_post,
