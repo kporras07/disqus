@@ -115,11 +115,12 @@ function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
         break;
       case 'update':
         // Write the status to the table, taking the node ID as the update key.
+        db_query('DELETE FROM {disqus} WHERE nid = %d', $node->nid);
         $data = array(
           'nid' => $node->nid,
           'status' => $node->disqus_status,
         );
-        drupal_write_record('disqus', $data, array('nid'));
+        drupal_write_record('disqus', $data);
         break;
       case 'view':
         // See if we are to display Disqus in the current context.
