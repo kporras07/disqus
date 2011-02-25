@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 /**
  * Displays the administration settings for Disqus.
