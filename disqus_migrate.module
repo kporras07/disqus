@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 function disqus_migrate_help($path, $arg) {
   switch ($path) {

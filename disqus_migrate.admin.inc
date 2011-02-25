@@ -1,5 +1,4 @@
 <?php
-// $Id$
 
 /**
  * Menu callback; Import comments from Disqus to the Drupal comment system.
