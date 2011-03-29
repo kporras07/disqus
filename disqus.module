@@ -86,13 +86,6 @@ function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
               'absolute' => TRUE,
             ));
 
-            // Build the message excerpt.
-            $message = nl2br($node->teaser);
-            $message = str_replace("\r", ' ', $message);
-            $message = str_replace("\n", ' ', $message);
-            $message = strip_tags($message);
-            $node->disqus['message'] = check_plain($message);
-
             // Build the title.
             $node->disqus['title'] = check_plain($node->title);
 
@@ -197,9 +190,6 @@ function disqus_user($op, &$edit, &$account, $category = NULL) {
           'absolute' => TRUE,
         ));
 
-        // Build the message excerpt.
-        $account->disqus['message'] = check_plain($account->name);
-
         // Build the title.
         $account->disqus['title'] = check_plain($account->name);
 
@@ -250,7 +240,7 @@ function disqus_link($type, $node = NULL, $teaser = FALSE) {
         'absolute' => TRUE,
       ));
       $links['disqus_comments'] = array(
-        'title' => theme('disqus_comments_num', $domain, $path, t('Comments')),
+        'title' => theme('disqus_comments_num', $domain, $path, t('Comments'), "node/$node->nid"),
         'html' => TRUE,
       );
     }
@@ -398,40 +388,49 @@ EOT;
 /**
  * Implementation of hook_footer().
  *
- * @param $disqus_options
+ * @param $options
  *   The options to pass off to the Disqus comments.
  */
-function disqus_footer($main = 0, $disqus_options = NULL) {
-  static $disqus = FALSE;
-  if (isset($disqus_options)) {
-    $disqus = $disqus_options;
-  }
-  if ($disqus) {
+function disqus_footer($main = 0, $options = NULL) {
+  // Adds the JavaScript required to constuct a Disqus thread.
+  static $added = FALSE;
+  if (!$added && isset($options)) {
+    $added = TRUE;
     $domain = variable_get('disqus_domain', '');
     if (!empty($domain)) {
-      $output = '<script type="text/javascript">';
-      if (isset($disqus['developer'])) {
-        $output .= 'var disqus_developer = 1;';
-      }
-      $output .= 'var disqus_url = '. drupal_to_js($disqus['url']) .';';
-      $output .= 'var disqus_title = '. drupal_to_js($disqus['title']) .';';
-      $output .= 'var disqus_message = '. drupal_to_js($disqus['message']) .';';
-      $output .= 'var disqus_identifier = '. drupal_to_js($disqus['identifier']) .';';
+      // Add the Disqus Drupal behavior.
+      drupal_add_js(drupal_get_path('module', 'disqus') . '/disqus.js');
 
+      // Construct the Disqus settings.
+      $settings = array(
+        'url' => $options['url'],
+        'title' => $options['title'],
+        'identifier' => $options['identifier'],
+        'shortname' => $domain,
+      );
+
+      // Inject the developer flag if we are debugging.
+      if (isset($options['developer'])) {
+        $settings['developer'] = 1;
+      }
+
+      // See if we are to inject the user's name and email address.
       global $user;
       if ($user->uid > 0) {
-        $output .= 'var disqus_def_name = '. drupal_to_js($user->name) .';';
-        $output .= 'var disqus_def_email = '. drupal_to_js($user->mail) .';';
+        $settings['name'] = $user->name;
+        $settings['email'] = $user->mail;
       }
 
       // Provide alternate language support if desired.
       if (variable_get('disqus_localization', FALSE)) {
         global $language;
-        $output .= 'var disqus_config = function() { this.language = '. drupal_to_js($language->language) .';};';
+        $settings['language'] = $language->language;
       }
 
-      $output .= "</script><script type='text/javascript' src='http://disqus.com/forums/$domain/embed.js'></script>";
-      return $output;
+      // Add the JavaScript.
+      drupal_add_js(array(
+        'disqus' => $settings,
+      ), 'setting');
     }
   }
 }
@@ -482,7 +481,7 @@ function theme_disqus_comments($options = array()) {
  * @return
  *   If $path is given, will provide a rendered HTML link for the comments.
  */
-function theme_disqus_comments_num($domain, $path = NULL, $text = NULL) {
+function theme_disqus_comments_num($domain, $path = NULL, $text = NULL, $identifier = NULL) {
   static $added = FALSE;
   if ($added == FALSE) {
     drupal_add_js(drupal_get_path('module', 'disqus') .'/disqus.js');
@@ -491,11 +490,13 @@ function theme_disqus_comments_num($domain, $path = NULL, $text = NULL) {
   }
   $text = empty($text) ? t('Comments') : $text;
   if (isset($path)) {
+    $attributes['class'] = 'comments disqus-comments';
+    $attributes['title'] = t('Jump to the comments of this posting.');
+    if (isset($identifier)) {
+      $attributes['data-disqus-identifier'] = $identifier;
+    }
     return l($text, $path, array(
-      'attributes' => array(
-        'class' => 'comments',
-        'title' => t('Jump to the comments of this posting.'),
-      ),
+      'attributes' => $attributes,
       'alias' => TRUE,
       'absolute' => TRUE,
       'fragment' => 'disqus_thread',
