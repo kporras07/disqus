@@ -58,14 +58,10 @@ function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
   $types = variable_get('disqus_nodetypes', array());
   if (!empty($types[$node->type])) {
     switch ($op) {
-      case 'validate':
-        $node->disqus['status'] = $node->disqus_status;
-        unset($node->disqus_status);
-        break;
       case 'presave':
         // For programmatic insertion of nodes via node_save.
-        if (!isset($node->disqus_status)) {
-          $node->disqus_status = TRUE;
+        if (!isset($node->disqus['status'])) {
+          $node->disqus['status'] = TRUE;
         }
         break;
       case 'load':
@@ -107,7 +103,7 @@ function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
       case 'insert':
         $data = array(
           'nid' => $node->nid,
-          'status' => $node->disqus_status,
+          'status' => $node->disqus['status'],
         );
         drupal_write_record('disqus', $data);
         break;
@@ -116,7 +112,7 @@ function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
         db_query('DELETE FROM {disqus} WHERE nid = %d', $node->nid);
         $data = array(
           'nid' => $node->nid,
-          'status' => $node->disqus_status,
+          'status' => $node->disqus['status'],
         );
         drupal_write_record('disqus', $data);
         break;
@@ -161,10 +157,13 @@ function disqus_form_alter(&$form, $form_state, $form_id) {
       );
     }
     $node = $form['#node'];
-    $form['comment_settings']['disqus_status'] = array(
-      '#type' => 'checkbox',
-      '#title' => t('Enable Disqus comments'),
-      '#default_value' => isset($node->disqus['status']) ? $node->disqus['status'] : TRUE,
+    $form['comment_settings']['disqus'] = array(
+      '#tree' => TRUE,
+      'status' => array(
+          '#type' => 'checkbox',
+          '#title' => t('Enable Disqus comments'),
+          '#default_value' => isset($node->disqus['status']) ? $node->disqus['status'] : TRUE,
+      ),
     );
   }
 }
