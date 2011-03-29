@@ -62,6 +62,12 @@ function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
         $node->disqus['status'] = $node->disqus_status;
         unset($node->disqus_status);
         break;
+      case 'presave':
+        // For programmatic insertion of nodes via node_save.
+        if (!isset($node->disqus_status)) {
+          $node->disqus_status = TRUE;
+        }
+        break;
       case 'load':
           // Check which Disqus domain to use.
           $domain = variable_get('disqus_domain', '');
