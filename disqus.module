@@ -423,7 +423,7 @@ function disqus_footer($main = 0, $options = NULL) {
 
       // See if we are to inject the user's name and email address.
       global $user;
-      if ($user->uid > 0) {
+      if (variable_get('disqus_inherit_login', TRUE) && $user->uid > 0) {
         $settings['name'] = $user->name;
         $settings['email'] = $user->mail;
       }
