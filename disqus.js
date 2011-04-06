@@ -39,12 +39,21 @@ Drupal.behaviors.disqus = function(context) {
       disqus_def_name = disqus.name || null;
       disqus_def_email = disqus.email || null;
 
-      // Assign the language.
-      if (disqus.language || false) {
-        disqus_config = function() {
+      // Language and SSO settings are passed in through disqus_config().
+      disqus_config = function() {
+        if (disqus.language || false) {
           this.language = disqus.language;
-        };
-      }
+        }
+        if (disqus.remote_auth_s3 || false) {
+          this.page.remote_auth_s3 = disqus.remote_auth_s3;
+        }
+        if (disqus.api_key || false) {
+          this.page.api_key = disqus.api_key;
+        }
+        if (disqus.sso || false) {
+          this.sso = disqus.sso;
+        }
+      };
 
       // Make the AJAX call for the comment thread.
       jQuery.ajax({

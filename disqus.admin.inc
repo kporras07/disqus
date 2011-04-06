@@ -11,6 +11,7 @@ function disqus_admin_settings() {
     '#description' => t('The domain that you registered Disqus with. If you registered http://example.disqus.com, you would enter "example" here.'),
     '#default_value' => variable_get('disqus_domain', ''),
   );
+  // Visibility settings.
   $form['visibility'] = array(
     '#type' => 'fieldset',
     '#title' => t('Visibility'),
@@ -42,29 +43,66 @@ function disqus_admin_settings() {
     '#default_value' => variable_get('disqus_weight', 50),
     '#options' => drupal_map_assoc(array(-100, -75, -50, -25, 0, 25, 50, 75, 100)),
   );
-  $form['disqus_behavior'] = array(
+  // Behavior settings.
+  $form['behavior'] = array(
     '#type' => 'fieldset',
     '#title' => t('Behavior'),
     '#collapsed' => TRUE,
     '#collapsible' => TRUE,
   );
-  $form['disqus_behavior']['disqus_userapikey'] = array(
+  $form['behavior']['disqus_userapikey'] = array(
     '#type' => 'textfield',
     '#title' => t('User API Key'),
     '#description' => t('The API key of the administrator account on Disqus. You can get yours <a href="@key">here</a>.', array('@key' => 'http://disqus.com/api/get_my_key/')),
     '#default_value' => variable_get('disqus_userapikey', ''),
   );
-  $form['disqus_behavior']['disqus_localization'] = array(
+  $form['behavior']['disqus_localization'] = array(
     '#type' => 'checkbox',
     '#title' => t('Localization support'),
     '#description' => t("When enabled, overrides the language set by Disqus with the language provided by the site."),
     '#default_value' => variable_get('disqus_localization', FALSE),
   );
-  $form['disqus_behavior']['disqus_developer'] = array(
+  $form['behavior']['disqus_developer'] = array(
     '#type' => 'checkbox',
     '#title' => t('Testing'),
     '#description' => t('When enabled, uses the <a href="http://disqus.com/help/#faq-14">disqus_developer</a> flag to tell Disqus that you are in a testing environment. Threads will not display on the public community page with this set.'),
     '#default_value' => variable_get('disqus_developer', FALSE),
   );
+  // Advanced settings.
+  $form['advanced'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Advanced'),
+    '#collapsed' => TRUE,
+    '#collapsible' => TRUE,
+    '#description' => t('Use these settings to configure the more advanced uses of Disqus. You can find ore information about these in the <a href="@applications">Applications</a> section of Disqus.', array(
+      '@applications' => 'http://disqus.com/api/applications/',
+    )),
+  );
+  $form['advanced']['disqus_publickey'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Public Key'),
+    '#default_value' => variable_get('disqus_publickey', ''),
+  );
+  $form['advanced']['disqus_secretkey'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Secret Key'),
+    '#default_value' => variable_get('disqus_secretkey', ''),
+  );
+  $form['advanced']['disqus_sso'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Single Sign-On'),
+    '#description' => t('Provide <a href="@sso">Single Sign-On</a> access to your site.', array(
+      '@sso' => 'http://disqus.com/api/sso/',
+    )),
+    '#default_value' => variable_get('disqus_sso', FALSE),
+  );
   return system_settings_form($form);
+}
+
+/**
+ * Menu callback; Automatically closes the window after the user logs in.
+ */
+function disqus_closewindow() {
+  drupal_add_js('window.close();', 'inline');
+  return t('Thank you for logging in. Please close this window, or <a href="@clickhere">click here</a> to continue.', array('@clickhere' => 'javascript:window.close();'));
 }
