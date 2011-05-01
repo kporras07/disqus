@@ -111,7 +111,7 @@ function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
       case 'insert':
         $data = array(
           'nid' => $node->nid,
-          'status' => $node->disqus['status'],
+          'status' => isset($node->disqus['status']) ? $node->disqus['status'] : TRUE,
         );
         drupal_write_record('disqus', $data);
         break;
@@ -120,7 +120,7 @@ function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
         db_query('DELETE FROM {disqus} WHERE nid = %d', $node->nid);
         $data = array(
           'nid' => $node->nid,
-          'status' => $node->disqus['status'],
+          'status' => isset($node->disqus['status']) ? $node->disqus['status'] : TRUE,
         );
         drupal_write_record('disqus', $data);
         break;
