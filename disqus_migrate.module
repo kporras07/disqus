@@ -2,10 +2,13 @@
 
 function disqus_migrate_help($path, $arg) {
   switch ($path) {
-  case 'admin/settings/disqus/import':
-    return '<p>'. t('The tool below allows you to import comments from <a href="@disqus">Disqus</a> to the  Drupal comment system.', array('@disqus' => 'http://disqus.com')) .'</p>';
   case 'admin/settings/disqus/export':
-    return '<p>'. t('Clicking <em>"Export"</em> below will send the comments from the Drupal comment system to <a href="@disqus">Disqus</a>. Comments will only be exported once per forum, so you can click on "Export" as many times as you want and you will not get duplicates. Make sure to lengthen your PHP timeout time if you have many comments to export.', array('@disqus' => 'http://disqus.com')) .'</p>';
+    return '<p>'. t(
+      'You can either export your comments to Disqus via the API (recommended) or via an XML file. '
+    . 'If exporting via an XML file, all of the comments will formatted WXR style and must be imported to Disqus. '
+    . 'If using the API, the module will attempt to export 100 comments at a time using the API. '
+    . '<b>Important:</b> If you choose to use the sync function for importing, is it not recommended that you use export again.'
+    ) . '</p>';
   }
 }
 
@@ -16,21 +19,111 @@ function disqus_migrate_menu() {
   $items = array();
   $items['admin/settings/disqus/import'] = array(
     'title' => 'Import',
-    'description' => 'Import comments from Disqus into the Drupal comment system.',
+    'description' => 'Settings for importing comments from Disqus into Drupal.',
     'access arguments' => array('administer disqus'),
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('disqus_migrate_admin_settings_import'),
-    'file' => 'disqus_migrate.admin.inc',
+    'page arguments' => array('disqus_migrate_admin_import_settings'),
+    'file' => 'disqus_migrate.import.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/content/comment/disqus_import'] = array(
+    'title' => 'Disqus Import',
+    'description' => 'Import comments from Disqus into Drupal.',
+    'access arguments' => array('administer disqus'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('disqus_migrate_admin_import'),
+    'file' => 'disqus_migrate.import.inc',
     'type' => MENU_LOCAL_TASK,
   );
   $items['admin/settings/disqus/export'] = array(
     'title' => 'Export',
-    'description' => 'Export comments from the Drupal comment system to Disqus.',
+    'description' => 'Settings for exporting comments from Drupal into Disqus',
     'access arguments' => array('administer disqus'),
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('disqus_migrate_admin_settings_export'),
-    'file' => 'disqus_migrate.admin.inc',
+    'page arguments' => array('disqus_migrate_admin_export_settings'),
+    'file' => 'disqus_migrate.export.inc',
+    'type' => MENU_LOCAL_TASK,
+  );
+  $items['admin/content/comment/disqus_export'] = array(
+    'title' => 'Disqus Export',
+    'description' => 'Export comments from the Drupal to Disqus.',
+    'access arguments' => array('administer disqus'),
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('disqus_migrate_admin_export'),
+    'file' => 'disqus_migrate.export.inc',
     'type' => MENU_LOCAL_TASK,
   );
   return $items;
+}
+
+/**
+ * Implementation of hook_cron
+ **/
+function disqus_migrate_cron() {
+
+  if (variable_get('disqus_migrate_sync_enabled',0) == 0) {
+    return;
+  }
+
+  $last_run = variable_get('disqus_migrate_last_sync', 0);
+  $interval = variable_get('disqus_migrate_sync_interval', 0);
+
+  // How much time elapsed since the last run?
+  $time_elapsed = time() - $last_run;
+
+  // Not enough?
+  if ($time_elapsed < $interval) {
+    return; // Don't run the interval
+  }
+
+  // Run sync
+  module_load_include('inc', 'disqus_migrate', 'disqus_migrate.admin');
+  
+  $last_synced_time = _disqus_migrate_last_synced_time();
+  
+  _disqus_migrate_import($last_synced_time + 1);
+  
+  // Update our last sync time
+  variable_set('disqus_migrate_last_sync', time());
+}
+
+/**
+ * Helper function to send the request API requests to Disqus
+ */
+function _disqus_migrate_api_request($resource, $parameters = array(), $method = 'GET', $include_forum = TRUE) {
+
+  // TODO: Pass just secret key for creating posts. Can we always just pass this?
+  // Add the API key and forum
+  //$parameters['api_key'] = variable_get('disqus_publickey','');
+  $parameters['api_secret'] = variable_get('disqus_secretkey', '');
+  
+  if ($include_forum) {
+    $parameters['forum'] = variable_get('disqus_domain','');
+  }
+  
+  // Build the request URI and query
+  $data = http_build_query($parameters, '', '&');
+  $url = 'http://disqus.com/api/3.0/' . $resource . '?' . $data;
+  $headers = array('Content-Type' => 'application/x-www-form-urlencoded');
+  
+  // Send request and return response
+  $response = drupal_http_request($url, $headers, $method);
+  
+  $content = $response->data;
+  $data = json_decode($content);
+
+  return $data;
+}
+
+/**
+ * Helper function to get the timestamp of the last synced comment
+ */
+function _disqus_migrate_last_synced_time() {
+  // Get the timestamp of the comment that was synced last (if at all)
+  $last_synced_time = db_result(db_query("SELECT MAX(c.timestamp) FROM {comments} c INNER JOIN {disqus_migrate} dm ON c.cid = dm.cid"));
+  if (empty($last_synced_time)) {
+    $last_synced_time = 0;
+  }
+  
+  return $last_synced_time;
 }
