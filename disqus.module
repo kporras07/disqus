@@ -56,6 +56,14 @@ function disqus_menu() {
     'file' => 'disqus.admin.inc',
     'type' => MENU_CALLBACK,
   );
+  $items['disqus/oauth_callback'] = array(
+    'title' => 'Authentication Callback',
+    'description' => 'Menu callback after a user has authenticated for exporting via the API',
+    'access arguments' => array('administer disqus'),
+    'page callback' => '_disqus_oauth_callback',
+    'file' => 'disqus.admin.inc',
+    'type' => MENU_CALLBACK, 
+  );
   return $items;
 }
 
@@ -591,4 +599,31 @@ function disqus_views_api() {
 function disqus($user_api_key = NULL, $forum_api_key = NULL) {
   module_load_include('php', 'disqus', 'disqus');
   return new Disqus($user_api_key, $forum_api_key);
+}
+
+/**
+ * Implement hook_cron
+ *
+ * We want to renew API access tokens before they expire. This ensures that a user will only have to go
+ * through the authentication process once.
+ */
+function disqus_cron() {
+  $oauth_expires = variable_get('disqus_oauth_expires_on', '');
+  if (!empty($oauth_expires)) {
+  
+    // Check to see if we should renew the access tokens yet
+    $buffer = 259200; // 3 day buffer
+    if (time() + $buffer > $oauth_expires) {
+      // 3 days or less from now, the access token will expire. Lets renew it
+      $parameters = array(
+        'grant_type' => 'refresh_token',
+        'client_id' => variable_get('disqus_publickey', ''),
+        'client_secret' => variable_get('disqus_secretkey', ''),
+        'refresh_token' => variable_get('disqus_oauth_refresh_token', ''),
+      );
+      
+      module_load_include('admin.inc', 'disqus', 'disqus');
+      _disqus_oath_request_access_token($parameters);
+    }
+  }
 }

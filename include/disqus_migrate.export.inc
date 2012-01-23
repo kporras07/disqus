@@ -11,16 +11,6 @@ function disqus_migrate_admin_export_settings() {
     '#title' => t('Export Settings'),
     '#description' => t('Select the following options to effect what comments are exported.'),
   );
-  $form['settings']['disqus_migrate_export_unpublishednodes'] = array(
-    '#type' => 'checkbox',
-    '#default_value' => variable_get('disqus_migrate_export_unpublishednodes', 0),
-    '#title' => t('Include comments of non-published nodes in export'),
-  );
-  $form['settings']['disqus_migrate_export_unpublishedcomments'] = array(
-    '#type' => 'checkbox',
-    '#default_value' => variable_get('disqus_migrate_export_unpublishedcomments', 0),
-    '#title' => t('Include unapproved comments in export'),
-  );
   $status_options = array(
     '--' => t('No Change'),
     0 => t('Disabled'),
@@ -30,10 +20,11 @@ function disqus_migrate_admin_export_settings() {
     '#type' => 'select',
     '#default_value' => variable_get('disqus_migrate_export_status_alter', '--'),
     '#title' => t('Node comment status change'),
-    '#description' => t('After comments for a node have been exported, the commenting status can be altered. Useful for disabling Drupal commenting once comments have been exported'),
+    '#description' => t('After comments for a node have been exported, the commenting status can be altered. Useful for disabling Drupal commenting once comments have been exported.'),
     '#options' => $status_options,
   );
   $api_limit_options = array(
+    20 => 20,
     100 => 100,
     250 => 250,
     500 => 500,
@@ -87,13 +78,14 @@ function disqus_migrate_admin_export() {
  * Calls function to gather comments to export, then attempts to create the comments
  * in Disqus using the API.
  */
-function _disqus_migrate_export_api() {
+function _disqus_migrate_export_api($form, &$form_state) {
 
-  // Ensure that the public and secret keys have been entered, as this is needed for export API calls
-  $pub_key = variable_get('disqus_publickey','');
-  $sec_key = variable_get('disqus_secretkey','');
-  if (empty($pub_key) || empty($sec_key)) {
-    drupal_set_message(t('Your public key and secret key must be entered before using this export functionality. Please get your application API keys from Disqus and enter them in the "Advanced" fieldset below.'), 'error');
+  // Need a combination of public, private, and access keys
+  $api_key = variable_get('disqus_publickey','');
+  $api_secret = variable_get('disqus_secretkey','');
+  $access_token = variable_get('disqus_oauth_access_token','');
+  if (empty($api_key) || empty($api_secret) || empty($access_token)) {
+    drupal_set_message(t('Your public & secret key must be entered before using this export functionality. Please get your application API keys from Disqus and enter them in the "Advanced" fieldset below. Also ensure that you have authenticated with Disqus.'), 'error');
     drupal_goto('admin/settings/disqus');
   }
   
@@ -102,16 +94,17 @@ function _disqus_migrate_export_api() {
   $thread_data = _disqus_migrate_export_gather();
   
   $comments_exported = 0;
-  $export_threshold = variable_get('disqus_migrate_export_api_limit', 100);
   foreach ($thread_data as $nid => $thread) {
 
     // Check to see if this thread exists already in Disqus
     $thread_id = db_result(db_query("SELECT dtid FROM {disqus_migrate} WHERE nid=%d", $nid));
     if ($thread_id === FALSE) {
-
+  
       $parameters = array(
         'thread:ident' => 'node/' . $nid,
         'thread:link' => url('node/' . $nid, array('absolute' => TRUE)),
+        'forum' => variable_get('disqus_domain',''),
+        'api_key' => $api_key,
       );
       $result = _disqus_migrate_api_request('threads/details.json', $parameters, 'GET');
       
@@ -132,6 +125,9 @@ function _disqus_migrate_export_api() {
         'url' => $thread['link'],
         'date' => $thread['post_date_gmt_unix'],
         'identifier' => $thread['identifier'],
+        'api_key' => $api_key,
+        'api_secret' => $api_secret,
+        'access_token' => $access_token,
       );
       $result = _disqus_migrate_api_request('threads/create.json', $parameters, 'POST');
       
@@ -144,9 +140,8 @@ function _disqus_migrate_export_api() {
         break;
       }
     }
-    
     // If we are able to get the Disqus thread ID, continue with exporting the comment
-    if ($thread_id !== FALSE) {
+    else {
       
       foreach ($thread['comments'] as $cid => $comment) {
         
@@ -164,6 +159,7 @@ function _disqus_migrate_export_api() {
           'state' => 'approved',
           'date' => $comment['date_gmt_unix'],
           'ip_address' => $comment['author_IP'],
+          'api_secret' => $api_secret,
         );
         
         $result = _disqus_migrate_api_request('posts/create.json', $parameters, 'POST', FALSE);
@@ -179,11 +175,6 @@ function _disqus_migrate_export_api() {
           
           drupal_write_record('disqus_migrate', $new_record);
           $comments_exported++;
-          
-          // Did we reach the threshold?
-          if ($comments_exported >= $export_threshold) {
-            break 2;
-          }
           
         } else {
           // Log whatever error was returned
@@ -205,6 +196,7 @@ function _disqus_migrate_export_api() {
   drupal_set_message(t("@exported comments have been exported from Drupal into Disqus.", array('@exported' => $comments_exported)));
 
 }
+
 
 /**
  * Calls function to gather comments to export, then builds the appropriate XML file
@@ -296,27 +288,28 @@ function _disqus_migrate_export_wxr($form, &$form_state) {
 function _disqus_migrate_export_gather($select_all = FALSE) {
   // Select all the nodes with comments
   $thread_data = array();
-
-  // Should we select all nodes/comments, or all nodes that have comments that haven't been exported via the API
-  if (!$select_all) {
-    // These two subqueries are added into queries below
-    $node_subq = "WHERE c.cid NOT IN (SELECT dm.cid FROM {disqus_migrate} dm)";
-    $comments_subq = "AND c.cid NOT IN (SELECT dm.cid FROM {disqus_migrate} dm)";
-  }
+  
+  // Get max amount of comments to gather
+  $export_threshold = variable_get('disqus_migrate_export_api_limit', 100);
+  $comments_gathered = 0;
   
   // Gather distinct node IDs from comments
-  $node_results = db_query("SELECT DISTINCT c.nid FROM {comments} c " . $node_subq);
+  if ($select_all) {
+    $node_results = db_query("SELECT DISTINCT c.nid FROM {comments} c");
+  }
+  else {
+    // Find all comments that haven't already been imported/exported via this module. Let's also limit the result to prevent
+    // any gathering an unnecessary amount of comments.
+    $node_results = db_query(
+    "SELECT DISTINCT c.nid FROM {comments} c LEFT JOIN {disqus_migrate} dm ON c.cid = dm.cid WHERE dm.cid IS NULL LIMIT 0, %d",
+    $export_threshold);
+  }
   $max_comment_id = 0;
   while ($nid = db_result($node_results)) {
   
     // get some bits of info from the node. This is much more efficient than doing a node_load
     $node_data_query = db_query("SELECT title, created, status FROM {node} WHERE nid = %d", $nid);
     $node_data = db_fetch_object($node_data_query);
-
-    // If this node is unpublished, should we include it and its comments in the export?
-    if ($form_state['values']['disqus_unpublished_nodes'] == 0 && $node_data->status == 0) {
-      continue;
-    }
     
     // Load up the thread data array for this node
     $thread_data[$nid] = array(
@@ -328,9 +321,15 @@ function _disqus_migrate_export_gather($select_all = FALSE) {
     );
 
     // Find all comments attached to this node
-    $comments_results = db_query("SELECT * FROM {comments} c WHERE c.nid = %d AND c.status IN (%s)" . $comments_subq . " ORDER BY c.cid ASC", $nid, ($form_state['values']['disqus_unapproved_comments'] ? '0,1' : '0'));
+    if ($select_all) {
+      $comment_query = "SELECT * FROM {comments} c WHERE c.nid = %d ORDER BY c.cid ASC";
+    }
+    else {
+      $comment_query = "SELECT c.* FROM {comments} c LEFT JOIN {disqus_migrate} dm ON c.cid = dm.cid WHERE dm.cid IS NULL AND c.nid = %d ORDER BY c.cid ASC";
+    }
+    $comments_results = db_query($comment_query, $nid);
     while ($comment = db_fetch_object($comments_results)) {
-      
+
       // Set max comment ID
       $max_comment_id = ($comment->cid > $max_comment_id) ? $comment->cid : $max_comment_id;
     
@@ -363,6 +362,12 @@ function _disqus_migrate_export_gather($select_all = FALSE) {
         'approved' => ($comment->status == 1) ? 0 : 1,
         'parent' => $comment->pid,
       );
+      
+      $comments_gathered++;
+      // Check to see if we reached limit of comments we shoudl export
+      if ($comments_gathered >= $export_threshold && !$select_all) {
+        break 2;
+      }
     }
   }
   

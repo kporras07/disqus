@@ -17,14 +17,11 @@ function disqus_migrate_install() {
  */
 function disqus_migrate_uninstall() {
   drupal_uninstall_schema('disqus_migrate');
-  variable_del('disqus_migrate_export_unpublishednodes');
-  variable_del('disqus_migrate_export_unpublishedcomments');
-  variable_del('disqus_migrate_export_unpublishedcomments');
   variable_del('disqus_migrate_export_status_alter');
   variable_del('disqus_migrate_export_api_limit');
   variable_del('disqus_migrate_import_stop_on_errors');
   variable_del('disqus_migrate_import_sync_enabled');
-  variable_del('disqus_migrate_import_sync_interval');  
+  variable_del('disqus_migrate_import_sync_interval');
 }
 
 /**

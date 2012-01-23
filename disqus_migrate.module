@@ -1,14 +1,26 @@
 <?php
 
+/**
+ * Implementation of hook_help
+ */
 function disqus_migrate_help($path, $arg) {
   switch ($path) {
-  case 'admin/settings/disqus/export':
-    return '<p>'. t(
-      'You can either export your comments to Disqus via the API (recommended) or via an XML file. '
-    . 'If exporting via an XML file, all of the comments will formatted WXR style and must be imported to Disqus. '
-    . 'If using the API, the module will attempt to export 100 comments at a time using the API. '
-    . '<b>Important:</b> If you choose to use the sync function for importing, is it not recommended that you use export again.'
-    ) . '</p>';
+    case 'admin/settings/disqus/export':
+      return '<p>' . t(
+        'When you are ready to perform an export, visit !thispage.'
+        , array('!thispage' => l('this page', 'admin/content/comment/disqus_export'))
+      ) . '</p>';
+    case 'admin/content/comment/disqus_export':
+      return '<p>' . t(
+        'Exporting via the API requires that you have registered your website as an application with Disqus and filled our your ' .
+        'private and public keys in the !mainsettings. Exporting via XML will just gather all of your websites comments ' .
+        'and format them for importing manually into Disqus. The recommended method is using the API. Visit the !exportsettings ' .
+        'to customize how these exports are performed.',
+        array(
+          '!exportsettings' => l('export settings', 'admin/settings/disqus/export'),
+          '!mainsettings' => l('main settings', 'admin/settings/disqus'),
+        )
+      ) . '</p>';
   }
 }
 
@@ -23,7 +35,7 @@ function disqus_migrate_menu() {
     'access arguments' => array('administer disqus'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('disqus_migrate_admin_import_settings'),
-    'file' => 'disqus_migrate.import.inc',
+    'file' => 'include/disqus_migrate.import.inc',
     'type' => MENU_LOCAL_TASK,
   );
   $items['admin/content/comment/disqus_import'] = array(
@@ -32,7 +44,7 @@ function disqus_migrate_menu() {
     'access arguments' => array('administer disqus'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('disqus_migrate_admin_import'),
-    'file' => 'disqus_migrate.import.inc',
+    'file' => 'include/disqus_migrate.import.inc',
     'type' => MENU_LOCAL_TASK,
   );
   $items['admin/settings/disqus/export'] = array(
@@ -41,7 +53,7 @@ function disqus_migrate_menu() {
     'access arguments' => array('administer disqus'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('disqus_migrate_admin_export_settings'),
-    'file' => 'disqus_migrate.export.inc',
+    'file' => 'include/disqus_migrate.export.inc',
     'type' => MENU_LOCAL_TASK,
   );
   $items['admin/content/comment/disqus_export'] = array(
@@ -50,7 +62,7 @@ function disqus_migrate_menu() {
     'access arguments' => array('administer disqus'),
     'page callback' => 'drupal_get_form',
     'page arguments' => array('disqus_migrate_admin_export'),
-    'file' => 'disqus_migrate.export.inc',
+    'file' => 'include/disqus_migrate.export.inc',
     'type' => MENU_LOCAL_TASK,
   );
   return $items;
@@ -88,15 +100,10 @@ function disqus_migrate_cron() {
 }
 
 /**
- * Helper function to send the request API requests to Disqus
+ * Helper function to send the API requests to Disqus
  */
 function _disqus_migrate_api_request($resource, $parameters = array(), $method = 'GET', $include_forum = TRUE) {
 
-  // TODO: Pass just secret key for creating posts. Can we always just pass this?
-  // Add the API key and forum
-  //$parameters['api_key'] = variable_get('disqus_publickey','');
-  $parameters['api_secret'] = variable_get('disqus_secretkey', '');
-  
   if ($include_forum) {
     $parameters['forum'] = variable_get('disqus_domain','');
   }
