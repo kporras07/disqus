@@ -56,6 +56,7 @@ function disqus_menu() {
     'file' => 'disqus.admin.inc',
     'type' => MENU_CALLBACK,
   );
+  /*
   $items['disqus/oauth_callback'] = array(
     'title' => 'Authentication Callback',
     'description' => 'Menu callback after a user has authenticated for exporting via the API',
@@ -64,6 +65,7 @@ function disqus_menu() {
     'file' => 'disqus.admin.inc',
     'type' => MENU_CALLBACK, 
   );
+  */
   return $items;
 }
 
@@ -607,6 +609,7 @@ function disqus($user_api_key = NULL, $forum_api_key = NULL) {
  * We want to renew API access tokens before they expire. This ensures that a user will only have to go
  * through the authentication process once.
  */
+/*
 function disqus_cron() {
   $oauth_expires = variable_get('disqus_oauth_expires_on', '');
   if (!empty($oauth_expires)) {
@@ -627,3 +630,4 @@ function disqus_cron() {
     }
   }
 }
+*/

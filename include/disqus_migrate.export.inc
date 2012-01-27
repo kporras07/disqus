@@ -83,8 +83,8 @@ function _disqus_migrate_export_api($form, &$form_state) {
   // Need a combination of public, private, and access keys
   $api_key = variable_get('disqus_publickey','');
   $api_secret = variable_get('disqus_secretkey','');
-  $access_token = variable_get('disqus_oauth_access_token','');
-  if (empty($api_key) || empty($api_secret) || empty($access_token)) {
+
+  if (empty($api_key) || empty($api_secret)) {
     drupal_set_message(t('Your public & secret key must be entered before using this export functionality. Please get your application API keys from Disqus and enter them in the "Advanced" fieldset below. Also ensure that you have authenticated with Disqus.'), 'error');
     drupal_goto('admin/settings/disqus');
   }
@@ -127,7 +127,6 @@ function _disqus_migrate_export_api($form, &$form_state) {
         'identifier' => $thread['identifier'],
         'api_key' => $api_key,
         'api_secret' => $api_secret,
-        'access_token' => $access_token,
       );
       $result = _disqus_migrate_api_request('threads/create.json', $parameters, 'POST');
       

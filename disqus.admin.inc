@@ -105,7 +105,8 @@ function disqus_admin_settings() {
     )),
     '#default_value' => variable_get('disqus_sso', FALSE),
   );
-      
+  
+  /*
   $oauth_expires = variable_get('disqus_oauth_expires_on', '');
   if (empty($oauth_expires)) {
     $form['advanced']['authenticate'] = array(
@@ -123,6 +124,7 @@ function disqus_admin_settings() {
       '#submit' => array('_disqus_oauth_deauthenticate'),
     );
   }
+  */
   
   return system_settings_form($form);
 }
@@ -138,6 +140,7 @@ function disqus_closewindow() {
 /**
  * Initiate an OAuth authentication with Disqus to get an access token
  */
+/*
 function _disqus_oauth_authenticate($form, &$form_state) {
   $path = 'https://disqus.com/api/oauth/2.0/authorize/';
   $query = array(
@@ -150,15 +153,18 @@ function _disqus_oauth_authenticate($form, &$form_state) {
   // Bring the user to the OAuth2 authentication page. They will be redirected back to this website.
   drupal_goto($path, $query);
 }
+*/
 
 /**
  * Clear out the access keys that have been saved
  */
+/*
 function _disqus_oauth_deauthenticate($form, &$form_state) {
   variable_del('disqus_oauth_access_token');
   variable_del('disqus_oauth_expires_on');
   variable_del('disqus_oauth_refresh_token');
 }
+*/
 
 
 /**
@@ -167,6 +173,7 @@ function _disqus_oauth_deauthenticate($form, &$form_state) {
  * If the user allowed the application access, we will be able to extract a token from the URL
  * and use it get obtain our access token for Disqus.
  */
+/*
 function _disqus_oauth_callback() {
   
   $code = $_GET['code'];
@@ -187,13 +194,14 @@ function _disqus_oauth_callback() {
   drupal_set_message(t("You have authenticated with Disqus (unless you chose not to authorize the application). You can manually drop the access keys, but they will auto-renew every 30 days."));
   
   drupal_goto('admin/settings/disqus');
-  
 }
+*/
 
 /**
  * Send a request to Disqus to obtain an access token. Takes in an array of parameters
  * to send along w/ the post request.
  */
+/*
 function _disqus_oath_request_access_token($parameters) {
 
   $data = http_build_query($parameters, '', '&');
@@ -222,3 +230,4 @@ function _disqus_oath_request_access_token($parameters) {
     variable_set('disqus_oauth_refresh_token', $data->refresh_token);
   }
 }
+*/
