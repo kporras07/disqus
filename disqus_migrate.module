@@ -134,3 +134,21 @@ function _disqus_migrate_last_synced_time() {
   
   return $last_synced_time;
 }
+
+/**
+ * Helper function to check for the existance of the Disqus API
+ **/
+function _disqus_migrate_api_exists() {
+  if (file_exists('sites/all/libraries/disqusapi/disqusapi.php')) {
+    return TRUE;
+  }
+  
+  return FALSE;
+}
+
+/**
+ * Helper function to load the Disqus API
+ **/
+function _disqus_migrate_api_load() {
+  include_once('sites/all/libraries/disqusapi/disqusapi.php');
+}

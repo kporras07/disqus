@@ -40,13 +40,24 @@ function disqus_migrate_admin_import_settings() {
       86400 => t('once a day'),
     ),
   );
-  $form['sync']['save_settings'] = array(
-    '#type' => 'submit',
-    '#value' => t('Save Settings'),
-    '#submit' => array('_disqus_migrate_import_save_settings'),
-  );
+  
+  $form['#validate'][] = 'disqus_migrate_admin_import_settings_validate';
 
   return system_settings_form($form);
+}
+
+/**
+ * Validate callback for saving Disqus import settings
+ */
+function disqus_migrate_admin_import_settings_validate($form, &$form_state) {
+  
+  if ($form_state['values']['disqus_migrate_import_sync_enabled'] == 1) {
+    // Check to make sure the Disqus API exists
+    if (!_disqus_migrate_api_exists()) {
+      form_set_error('sync][disqus_migrate_import_sync_enabled', t('To enable automatic importing, you need to first upload the Disqus API to your libraries folder.'));
+    }
+  }
+  
 }
 
 /**
@@ -90,6 +101,15 @@ function _disqus_migrate_import_now_validate($form, &$form_state) {
   if (!empty($form_state['values']['since']) && strtotime($form_state['values']['since']) === FALSE) {
     form_set_error('sync][since', t('Invalid strtotime() syntax.'));
   }
+  
+  $secret_key = variable_get('disqus_secretkey','');
+  if (empty($secret_key)) {
+    form_set_error('', t('Your secret key must be entered before using the import functionality. Please get your secret API key from your Disqus application and enter it in the settings.'));
+  }
+  
+  if (!_disqus_migrate_api_exists()) {
+    form_set_error('', t('You need to upload the Disqus API to your libraries folder.'));
+  }
 }
 
 /**
@@ -116,14 +136,11 @@ function _disqus_migrate_import_now($form, &$form_state) {
  **/
 function _disqus_migrate_import($since = 0) {
 
-  // Ensure that the public_key has been entered, as this is needed for API calls
-  $pub_key = variable_get('disqus_publickey','');
-  if (empty($pub_key)) {
-    drupal_set_message(t('Your public key must be entered before using the import functionality. Please get your public API key from Disqus and enter it in the "Advanced" fieldset below.'), 'error');
-    drupal_goto('admin/settings/disqus');
-  }
+  // Load API
+  _disqus_migrate_api_load();
+  $api_secret = variable_get('disqus_secretkey','');
+  $dapi = new DisqusAPI($api_secret);
   
-  // Load for easier use...
   $error_stop = variable_get('disqus_migrate_import_stop_on_errors', 1);
   
   $total_comments_imported = 0;
@@ -138,21 +155,23 @@ function _disqus_migrate_import($since = 0) {
       'order' => 'asc',
       'since' => $since,
       'related' => 'thread',
+      'forum' => variable_get('disqus_domain',''),
     );
-    $result = _disqus_migrate_api_request('posts/list.json', $parameters, 'GET');
     
-    // Error connecting to Disqus
-    if ($result->code != 0) {
+    try {
+      $result = $dapi->posts->list($parameters);
+    } catch (Exception $e) {
+      // Log whatever error was returned
       $message = 'Received error while sending an API request to Disqus: @error';
-      $vars = array('@error' => $result->response);
+      $vars = array('@error' => $e);
       drupal_set_message(t($message, $vars), 'error');
       watchdog('disqus_migrate', $message, $vars, WATCHDOG_ERROR);
-      
+
       return;
     }
     
     // If we received less than 100 comments from Disqus, no need to continue importing
-    $comments_retrieved = count($result->response);
+    $comments_retrieved = count($result);
     if ($comments_retrieved < 100) {
       $continue_importing = FALSE;
     }
@@ -160,7 +179,7 @@ function _disqus_migrate_import($since = 0) {
     // Loop through each comment retrieved
     $comments_imported = 0;
     $comments_processed = 0;
-    foreach ($result->response as $comment) {
+    foreach ($result as $comment) {
       $comments_processed++;
           
       // Ensure this comment was not already imported
@@ -185,9 +204,9 @@ function _disqus_migrate_import($since = 0) {
         $found_nid = TRUE;
       }
       // Could not find the NID in a thread identifier, try to find it in the URL instead
-      if (!$found_nid && !empty($comment->thread->url)) {
+      if (!$found_nid && !empty($comment->thread->link)) {
         // Parse path from URL
-        $url = parse_url($comment->thread->url);
+        $url = parse_url($comment->thread->link);
         $url = substr($url['path'], strlen(base_path()));
         $normal_path = drupal_get_normal_path($url);
         

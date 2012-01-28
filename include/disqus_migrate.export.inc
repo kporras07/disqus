@@ -63,6 +63,7 @@ function disqus_migrate_admin_export() {
   $form['export']['export_api'] = array(
     '#type' => 'submit',
     '#value' => t('Export awaiting comments using API'),
+    '#validate' => array('_disqus_migrate_export_api_validate'),
     '#submit' => array('_disqus_migrate_export_api'),
   );
   $form['export']['export_xml'] = array(
@@ -75,22 +76,40 @@ function disqus_migrate_admin_export() {
 }
 
 /**
+ * When exporting via the API, make sure the user filled out the necessary info
+ */
+function _disqus_migrate_export_api_validate($form, &$form_state) {
+  // Check for existance of Disqus API
+  if (!file_exists('sites/all/libraries/disqusapi/disqusapi.php')) {
+    form_set_error('', t('Your secret key must be entered before using this export functionality. Please get your application API keys from Disqus and enter them in the "Advanced" fieldset below. Also ensure that you have authenticated with Disqus.'));
+  }
+  
+  // Make sure secret key is filled out
+  $api_secret = variable_get('disqus_secretkey','');
+  if (empty($api_secret)) {
+    form_set_error('', t('Your secret key must be entered before using this export functionality. Please get your application API keys from Disqus and enter them in the "Advanced" fieldset on the settings page.'));
+  }
+}
+
+/**
  * Calls function to gather comments to export, then attempts to create the comments
  * in Disqus using the API.
  */
 function _disqus_migrate_export_api($form, &$form_state) {
 
-  // Need a combination of public, private, and access keys
-  $api_key = variable_get('disqus_publickey','');
+  // Get API secret
   $api_secret = variable_get('disqus_secretkey','');
-
-  if (empty($api_key) || empty($api_secret)) {
-    drupal_set_message(t('Your public & secret key must be entered before using this export functionality. Please get your application API keys from Disqus and enter them in the "Advanced" fieldset below. Also ensure that you have authenticated with Disqus.'), 'error');
-    drupal_goto('admin/settings/disqus');
-  }
   
+  // Load API
+  include_once('sites/all/libraries/disqusapi/disqusapi.php');
+  
+  // Initialize the API
+  $dapi = new DisqusAPI($api_secret);
+  
+  // What should we do to a local comment after processing
   $status_change = variable_get('disqus_migrate_export_status_alter', '--');
   
+  // Gather thread data
   $thread_data = _disqus_migrate_export_gather();
   
   $comments_exported = 0;
@@ -101,19 +120,19 @@ function _disqus_migrate_export_api($form, &$form_state) {
     if ($thread_id === FALSE) {
   
       $parameters = array(
-        'thread:ident' => 'node/' . $nid,
-        'thread:link' => url('node/' . $nid, array('absolute' => TRUE)),
         'forum' => variable_get('disqus_domain',''),
+        'thread:ident' => 'node/' . $nid,
+        'thread:link' => url('node/' . $nid, array('absolute' => TRUE, 'alias' => TRUE)),
         'api_key' => $api_key,
+        'forum' => variable_get('disqus_domain',''),
       );
-      $result = _disqus_migrate_api_request('threads/details.json', $parameters, 'GET');
-      
-      // If the thread exists, we will get it back in the request
-      if ($result->code == 0) {
-        $thread_id = $result->response->id;
-      } else if ($result->code == 13 || $result->code == 14) {
-        drupal_set_message(t('API rate limit with Disqus has been reached. Export has stopped.'), 'warning');
-        break;
+
+      try {
+        $response = $dapi->threads->details($parameters);
+        
+        $thread_id = $response->id;
+      } catch (Exception $e) {
+        // Thread doesn't exist, don't do anything
       }
     }
     
@@ -127,17 +146,19 @@ function _disqus_migrate_export_api($form, &$form_state) {
         'identifier' => $thread['identifier'],
         'api_key' => $api_key,
         'api_secret' => $api_secret,
+        'forum' => variable_get('disqus_domain',''),
       );
-      $result = _disqus_migrate_api_request('threads/create.json', $parameters, 'POST');
-      
-      if ($result->code == 0) {
-        // Thread created in Disqus, get the thread ID for our records
-        $thread_id = $result->response->id;
-      } else {
+
+      try {
+        $response = $dapi->threads->create($parameters);
+        
+        $thread_id = $response->id;
+      } catch (Exception $e) {
         // Log whatever error was returned
-        drupal_set_message(t('Error when attempting to create Disqus thread for node id @nid (export has stopped): @error', array('@nid' => $nid, '@error' => $result->response)), 'error');
+        drupal_set_message(t('Error when attempting to create Disqus thread for node id @nid (export has stopped): @error', array('@nid' => $nid, '@error' => $e)), 'error');
         break;
       }
+
     }
     // If we are able to get the Disqus thread ID, continue with exporting the comment
     else {
@@ -161,23 +182,21 @@ function _disqus_migrate_export_api($form, &$form_state) {
           'api_secret' => $api_secret,
         );
         
-        $result = _disqus_migrate_api_request('posts/create.json', $parameters, 'POST', FALSE);
-        
-        if ($result->code === 0) {
-        
+        try {
+          $response = $dapi->posts->create($parameters);
+          
           // Comment successfully exported... let's make a record of it
           $new_record = new stdClass();
-          $new_record->did = $result->response->id;
+          $new_record->did = $response->id;
           $new_record->dtid = $thread_id;
           $new_record->nid = $nid;
           $new_record->cid = $cid;
           
           drupal_write_record('disqus_migrate', $new_record);
           $comments_exported++;
-          
-        } else {
+        } catch (Exception $e) {
           // Log whatever error was returned
-          drupal_set_message(t('Error when attempting to create Disqus post for comment id @cid (export has stopped): @error', array('@cid' => $cid, '@error' => $result->response)), 'error');
+          drupal_set_message(t('Error when attempting to create Disqus post for comment id @cid (export has stopped): @error', array('@cid' => $cid, '@error' => $e)), 'error');
           break 2;
         }
 
@@ -313,7 +332,7 @@ function _disqus_migrate_export_gather($select_all = FALSE) {
     // Load up the thread data array for this node
     $thread_data[$nid] = array(
       'title' => $node_data->title,
-      'link' => url("node/" . $nid, array('absolute' => TRUE)),
+      'link' => url("node/" . $nid, array('absolute' => TRUE, 'alias' => TRUE)),
       'identifier' => 'node/' . $nid,
       'post_date_gmt' => date("Y-m-d H:i:s", $node_data->created),
       'post_date_gmt_unix' => $node_data->created,
