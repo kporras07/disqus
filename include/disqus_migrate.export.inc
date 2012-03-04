@@ -310,6 +310,9 @@ function _disqus_migrate_export_gather($select_all = FALSE) {
   // Get max amount of comments to gather
   $export_threshold = variable_get('disqus_migrate_export_api_limit', 100);
   $comments_gathered = 0;
+
+  // Storage for looked up user emails
+  $user_emails = array();
   
   // Gather distinct node IDs from comments
   if ($select_all) {
@@ -351,12 +354,23 @@ function _disqus_migrate_export_gather($select_all = FALSE) {
       // Set max comment ID
       $max_comment_id = ($comment->cid > $max_comment_id) ? $comment->cid : $max_comment_id;
     
-      // Randomize emails for anonymous comments - otherwise all the anonymous comments would appear to come
-      // from the same account
-      $random = rand(1000,100000);
-      if ($comment->mail) {
+      if ($comment->uid != 0) {
+        // Logged in user left comment, obtain email from user account
+        if (isset($user_emails[$comment->uid])) {
+          $comment_mail = $user_emails[$comment->uid];
+        } else {
+          $user_mail = db_result(db_query("SELECT mail FROM {users} WHERE uid=%d", $comment->uid));
+          $comment_mail = $user_mail;
+          // Save into storage so we don't need another query
+          $user_emails[$comment->uid] == $user_mail;
+        }
+      } elseif ($comment->mail) {
+        // Anon commenter left email, use that
         $comment_mail = $comment->mail;
       } else {
+        // Anon commenter did NOT leave email, but it's required by Disqus, so
+        // generate a random one (to make each unique)
+        $random = rand(1000,100000);
         $comment_mail = "anon" . $random . "@anonymous.com";
       }
       
