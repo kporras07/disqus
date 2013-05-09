@@ -73,7 +73,7 @@ function disqus_nodeapi(&$node, $op, $a3 = NULL, $a4 = NULL) {
           $node->disqus['message'] = check_plain($message);
 
           // Build the title.
-          $node->disqus['title'] = check_plain($node->title);
+          $node->disqus['title'] = check_plain(strip_tags($node->title));
 
           // Provide the identifier.
           $node->disqus['identifier'] = 'node/' . $node->nid;
