@@ -81,7 +81,7 @@ function disqus_migrate_admin_export() {
 function _disqus_migrate_export_api_validate($form, &$form_state) {
   // Check for existance of Disqus API
   if (!file_exists('sites/all/libraries/disqusapi/disqusapi.php')) {
-    form_set_error('', t('Your secret key must be entered before using this export functionality. Please get your application API keys from Disqus and enter them in the "Advanced" fieldset below. Also ensure that you have authenticated with Disqus.'));
+    form_set_error('', t('Download the <a href="@disqusapiurl">PHP API implementation here</a> and upload the disqusapi folder to your sites/all/libraries folder. Also ensure that you have authenticated with Disqus.', array('@disqusapiurl' => url('https://github.com/disqus/disqus-php', array('absolute' => TRUE)))));
   }
   
   // Make sure secret key is filled out
