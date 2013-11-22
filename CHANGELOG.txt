@@ -1,3 +1,4 @@
 Disqus 6.x-1.x
 ---------------------------------
+- Issue #2141229 by valdo: XML export: datetimes should be exported in GMT.
 - Issue #2141257 by valdo: D6 migrate: don't include disqus_migrate.admin.inc as this file was removed.

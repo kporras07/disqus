@@ -306,7 +306,10 @@ function _disqus_migrate_export_wxr($form, &$form_state) {
 function _disqus_migrate_export_gather($select_all = FALSE) {
   // Select all the nodes with comments
   $thread_data = array();
-  
+
+  // Make sure the dates are exported in GMT time as expected by Disqus
+  date_default_timezone_set('GMT');
+
   // Get max amount of comments to gather
   $export_threshold = variable_get('disqus_migrate_export_api_limit', 100);
   $comments_gathered = 0;
