@@ -420,14 +420,14 @@ function _disqus_migrate_cleanse_xml($string) {
     '"',
     "'",
   );
-
+  
   $replace = array(
     '&gt;',
     '&lt;',
     '&amp;',
-    '&quot;',
     '&apos;',
+    '&quot;',
   );
-
+  
   return str_replace($find, $replace, $string);
 }
