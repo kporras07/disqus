@@ -253,7 +253,7 @@ function _disqus_migrate_export_wxr($form, &$form_state) {
       $output .= '<title>' . _disqus_migrate_cleanse_xml($thread['title']) . '</title>';
       $output .= '<link>' . $thread['link'] . '</link>';
       $output .= '<content:encoded></content:encoded>';
-      $output .= '<dsq:identifier>' . $thread['identifier'] . '</dsq:identifier>';
+      $output .= '<dsq:thread_identifier>' . $thread['identifier'] . '</dsq:thread_identifier>';
       $output .= '<wp:post_date_gmt>' . $thread['post_date_gmt'] . '</wp:post_date_gmt>';
       $output .= '<wp:comment_status>open</wp:comment_status>';
       
