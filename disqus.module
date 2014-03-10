@@ -359,26 +359,26 @@ function disqus_block($op = 'list', $delta = 0, $edit = array()) {
       switch ($delta) {
       case 'disqus_recent_comments':
         $content = <<<EOT
-<div id="dsq-recentcomments" class="dsq-widget"><script type="text/javascript" src="http://disqus.com/forums/$domain/recent_comments_widget.js?num_items=$num_items$avatars"></script></div>
+<div id="dsq-recentcomments" class="dsq-widget"><script type="text/javascript" src="//disqus.com/forums/$domain/recent_comments_widget.js?num_items=$num_items$avatars"></script></div>
 EOT;
         $subject = t('Recent Comments');
       break;
       case 'disqus_popular_threads':
         $subject = t('Popular Threads');
         $content = <<<EOT
-<div id="dsq-popthreads" class="dsq-widget"><script type="text/javascript" src="http://disqus.com/forums/$domain/popular_threads_widget.js?num_items=$num_items"></script></div>
+<div id="dsq-popthreads" class="dsq-widget"><script type="text/javascript" src="//disqus.com/forums/$domain/popular_threads_widget.js?num_items=$num_items"></script></div>
 EOT;
       break;
       case 'disqus_top_commenters':
         $subject = t('Top Commenters');
         $content = <<<EOT
-<div id="dsq-topcommenters" class="dsq-widget"><script type="text/javascript" src="http://disqus.com/forums/$domain/top_commenters_widget.js?num_items=$num_items$avatars"></script></div>
+<div id="dsq-topcommenters" class="dsq-widget"><script type="text/javascript" src="//disqus.com/forums/$domain/top_commenters_widget.js?num_items=$num_items$avatars"></script></div>
 EOT;
       break;
       case 'disqus_combination_widget':
         $subject = t('Comments');
         $content = <<<EOT
-<script type="text/javascript" src="http://disqus.com/forums/$domain/combination_widget.js?num_items=$num_items&amp;color=$color&amp;default_tab=$default_tab"></script>
+<script type="text/javascript" src="//disqus.com/forums/$domain/combination_widget.js?num_items=$num_items&amp;color=$color&amp;default_tab=$default_tab"></script>
 EOT;
       break;
       case 'disqus_comments':
