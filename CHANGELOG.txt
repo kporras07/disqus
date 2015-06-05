@@ -2,6 +2,7 @@ CHANGELOG for Disqus for Drupal 7
 
 Disqus 7.x-1.x-dev
 =================================
+- #2499753 by Fanyalla: Reduce number of calls to the database
 - #1821146 by DElion, slashrsm, JayeshSolanki: Fixed SSO login, which was incorrectly redirecting to disqus.com
 - #2339153 by jenlampton: Fixed "Toggle Disqus comments" permission required to toggle core comments.
 - #2329899 by JayeshSolanki | mredding: Fixed undefined disqus object in disqus_node_update error.

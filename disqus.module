@@ -211,10 +211,6 @@ function disqus_node_load($nodes, $types) {
         // Save the data to the node object.
         $node->disqus = array('domain' => $domain);
 
-        // Apply the Disqus status to the node.
-        $status = db_query("SELECT status FROM {disqus} WHERE nid = :nid", array(':nid' => $node->nid))->fetchObject();
-        $node->disqus['status'] = isset($status->status) ? (bool)$status->status : TRUE;
-
         // Build the absolute URL without the alias for the disqus_url flag.
         $node->disqus['url'] = url("node/$node->nid", array(
           'absolute' => TRUE,
@@ -234,6 +230,14 @@ function disqus_node_load($nodes, $types) {
           $node->disqus['developer'] = (int) $developer;
         }
       }
+    }
+
+    // Get the Disqus status of each node.
+    $statuses = db_query("SELECT nid, status FROM {disqus} WHERE nid IN (:nids)", array(':nids' => array_keys($nodes)))->fetchAllAssoc('nid');
+
+    foreach ($nodes as &$node) {
+      // Apply the Disqus status to the node.
+      $node->disqus['status'] = isset($statuses[$node->nid]->status) ? (bool) $statuses[$node->nid]->status : TRUE;
     }
   }
 }
