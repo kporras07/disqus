@@ -235,9 +235,15 @@ function disqus_node_load($nodes, $types) {
     // Get the Disqus status of each node.
     $statuses = db_query("SELECT nid, status FROM {disqus} WHERE nid IN (:nids)", array(':nids' => array_keys($nodes)))->fetchAllAssoc('nid');
 
+    // Load the default Disqus status for each content type.
+    $disqus_status = variable_get('disqus_nodetypes_default', array());
+    $disqus_default_status = TRUE;
+
     foreach ($nodes as &$node) {
+      $disqus_default_status = !empty($disqus_status[$node->type]);
+
       // Apply the Disqus status to the node.
-      $node->disqus['status'] = isset($statuses[$node->nid]->status) ? (bool) $statuses[$node->nid]->status : TRUE;
+      $node->disqus['status'] = isset($statuses[$node->nid]->status) ? (bool) $statuses[$node->nid]->status : $disqus_default_status;
     }
   }
 }
