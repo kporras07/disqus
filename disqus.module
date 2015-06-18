@@ -1080,3 +1080,29 @@ function disqus_sso_user_data($account = NULL) {
 
   return $data;
 }
+
+/**
+ * Implements hook_feeds_processor_targets_alter().
+ */
+function disqus_feeds_feeds_processor_targets_alter(&$targets, $entity_type, $bundle) {
+  if ($entity_type == 'node') {
+    $targets['disqus'] = array(
+      'name' => t('Disqus status'),
+      'description' => t('Disqus status.'),
+      'callback' => 'disqus_feeds_set_target',
+    );
+  }
+}
+
+/**
+ * Mapping target callback.
+ */
+function disqus_feeds_set_target($source, $entity, $target, array $values, $mapping) {
+  if (!is_array($values)) {
+    $values = (array) $values;
+  }
+  if ($values) {
+    $value = reset($values);
+    $entity->disqus_status = $value;
+  }
+}
