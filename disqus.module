@@ -1084,7 +1084,7 @@ function disqus_sso_user_data($account = NULL) {
 /**
  * Implements hook_feeds_processor_targets_alter().
  */
-function disqus_feeds_feeds_processor_targets_alter(&$targets, $entity_type, $bundle) {
+function disqus_feeds_processor_targets_alter(&$targets, $entity_type, $bundle) {
   if ($entity_type == 'node') {
     $targets['disqus'] = array(
       'name' => t('Disqus status'),
