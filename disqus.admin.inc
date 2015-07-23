@@ -70,7 +70,7 @@ function disqus_admin_settings() {
     '#type' => 'checkboxes',
     '#title' => t('Node Types'),
     '#description' => t('Select disqus comments by default to only the following node types.'),
-    '#default_value' => variable_get('disqus_nodetypes_default', array_keys($options)),
+    '#default_value' => variable_get('disqus_nodetypes_default', _disqus_node_types_options()),
     '#options' => $options,
   );
   // Behavior settings.

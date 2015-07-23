@@ -91,7 +91,6 @@ function disqus_update_7001() {
   }
 }
 
-
 /**
  * Remove deprecated variable.
  */

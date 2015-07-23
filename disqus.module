@@ -236,8 +236,7 @@ function disqus_node_load($nodes, $types) {
     $statuses = db_query("SELECT nid, status FROM {disqus} WHERE nid IN (:nids)", array(':nids' => array_keys($nodes)))->fetchAllAssoc('nid');
 
     // Load the default Disqus status for each content type.
-    $disqus_status = variable_get('disqus_nodetypes_default', array());
-    $disqus_default_status = TRUE;
+    $disqus_status = variable_get('disqus_nodetypes_default', _disqus_node_types_options());
 
     foreach ($nodes as &$node) {
       $disqus_default_status = !empty($disqus_status[$node->type]);
@@ -348,13 +347,14 @@ function disqus_node_delete($node) {
  * Implements hook_node_insert().
  */
 function disqus_node_insert($node) {
-  // Write the value only if it's disabled (default is enabled).
-  if (isset($node->disqus_status) && $node->disqus_status == FALSE) {
-    $data = array(
-      'nid' => $node->nid,
-      'status' => $node->disqus_status,
-    );
-    drupal_write_record('disqus', $data);
+  if (isset($node->disqus_status)) {
+    // This insert hook can also be called from disqus_node_update() and an
+    // entry for a given nid could already exist at the time. Let's use merge
+    // query to prevent duplicate entries.
+    db_merge('disqus')
+      ->key(array('nid' => $node->nid))
+      ->fields(array('nid' => $node->nid, 'status' => $node->disqus_status))
+      ->execute();
   }
 }
 
@@ -388,12 +388,7 @@ function disqus_node_update($node) {
 
   // Finish the update process.
   if (isset($node->disqus_status) && isset($node->disqus['status']) && $node->disqus_status != $node->disqus['status']) {
-    if ($node->disqus_status) {
-      disqus_node_delete($node);
-    }
-    else {
-      disqus_node_insert($node);
-    }
+    disqus_node_insert($node);
   }
 }
 
@@ -778,9 +773,7 @@ function disqus_form_alter(&$form, $form_state, $form_id) {
         }
       }
       // Add the Disqus settings into the comment settings fieldset for users with toggle permission.
-      $disqus_status = variable_get('disqus_nodetypes_default', array());
-      $disqus_default_status = TRUE;
-
+      $disqus_status = variable_get('disqus_nodetypes_default', _disqus_node_types_options());
       $disqus_default_status = !empty($disqus_status[$node->type]);
 
       $form['comment_settings']['disqus_status'] = array(
@@ -1105,4 +1098,16 @@ function disqus_feeds_set_target($source, $entity, $target, array $values, $mapp
     $value = reset($values);
     $entity->disqus_status = $value;
   }
+}
+
+/**
+ * Gets array of node type machine names.
+ */
+function _disqus_node_types_options() {
+  $types = node_type_get_types();
+  $options = array();
+  foreach ($types as $type) {
+    $options[$type->type] = $type->type;
+  }
+  return $options;
 }
