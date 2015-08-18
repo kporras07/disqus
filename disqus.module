@@ -141,6 +141,14 @@ function disqus_element_post_render($children, &$element) {
     $disqus += disqus_sso_disqus_settings($user);
   }
 
+  // Check if we want to track new comments in Google Analytics.
+  if (variable_get('disqus_track_newcomment_ga', FALSE)) {
+    // Add a callback when a new comment is posted.
+    $disqus['callbacks']['onNewComment'][] = 'Drupal.disqus.disqusTrackNewComment';
+    // Attach the js with the callback implementation.
+    $element['#attached']['js'][] = drupal_get_path('module', 'disqus') . '/js/disqus_ga.js';
+  }
+
   /**
    * Pass callbacks on if needed. Callbacks array is two dimensional array
    * with callback type as key on first level and array of JS callbacks on the
@@ -161,7 +169,7 @@ function disqus_element_post_render($children, &$element) {
   }
 
   // Add the disqus.js and all the settings to process the JavaScript and load Disqus.
-  $element['#attached']['js'][] = drupal_get_path('module', 'disqus') . '/disqus.js';
+  $element['#attached']['js'][] = drupal_get_path('module', 'disqus') . '/js/disqus.js';
   $element['#attached']['js'][] = array(
     'type' => 'setting',
     'data' => array(
@@ -287,7 +295,7 @@ function disqus_node_view($node, $view_mode) {
         );
 
         // Attach disqus.js to load the Disqus comment count JavaScript.
-        $node->content['links']['#attached']['js'][] = drupal_get_path('module', 'disqus') . '/disqus.js';
+        $node->content['links']['#attached']['js'][] = drupal_get_path('module', 'disqus') . '/js/disqus.js';
         $node->content['links']['#attached']['js'][] = array(
           'data' => array('disqusComments' => $node->disqus['domain']),
           'type' => 'setting',
@@ -758,7 +766,7 @@ function disqus_form_alter(&$form, $form_state, $form_id) {
           '#group' => 'additional_settings',
           '#weight' => 30,
           '#attached' => array(
-            'js' => array(drupal_get_path('module', 'disqus') . '/disqus-node-form.js'),
+            'js' => array(drupal_get_path('module', 'disqus') . '/js/disqus-node-form.js'),
           ),
         );
       }
@@ -769,7 +777,7 @@ function disqus_form_alter(&$form, $form_state, $form_id) {
           // But reveal parent comment settings fieldset if user has toggle permission
           $form['comment_settings']['#access'] = (user_access('toggle disqus comments') || $form['comment_settings']['#access']);
           // Add the Javascript for tab text.
-          $form['comment_settings']['#attached']['js'][] = drupal_get_path('module', 'disqus') . '/disqus-node-form.js';
+          $form['comment_settings']['#attached']['js'][] = drupal_get_path('module', 'disqus') . '/js/disqus-node-form.js';
         }
       }
       // Add the Disqus settings into the comment settings fieldset for users with toggle permission.

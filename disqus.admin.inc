@@ -97,6 +97,12 @@ function disqus_admin_settings() {
     '#description' => t('When enabled, uses the <a href="http://docs.disqus.com/help/2/">disqus_developer</a> flag to tell Disqus that you are in a testing environment. Threads will not display on the public community page with this set.'),
     '#default_value' => variable_get('disqus_developer', FALSE),
   );
+  $form['behavior']['disqus_track_newcomment_ga'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Track new comments in Google Analytics'),
+    '#description' => t('When enabled, sends tracking information to Google Analytics. This will work only if you have installed the <a href="https://www.drupal.org/project/google_analytics">google_analytics</a> module.'),
+    '#default_value' => variable_get('disqus_track_newcomment_ga', FALSE),
+  );
   // Advanced settings.
   $form['advanced'] = array(
     '#type' => 'fieldset',
