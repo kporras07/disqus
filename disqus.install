@@ -55,6 +55,7 @@ function disqus_uninstall() {
     'disqus_location',
     'disqus_logo',
     'disqus_nodetypes',
+    'disqus_nodetypes_default',
     'disqus_popular_threads_items',
     'disqus_publickey',
     'disqus_recent_comments_avatarsize',
