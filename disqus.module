@@ -207,6 +207,25 @@ function disqus_field_extra_fields() {
  * Implements hook_node_load().
  */
 function disqus_node_load($nodes, $types) {
+  if (!module_exists('entitycache')) {
+    _disqus_node_load($nodes);
+  }
+}
+
+/**
+ * Implements hook_entitycache_node_load().
+ */
+function disqus_entitycache_node_load($nodes) {
+  _disqus_node_load($nodes);
+}
+
+/**
+ * Load Disqus details.
+ *
+ * @param array $nodes
+ *   An array of the nodes being loaded, keyed by nid.
+ */
+function _disqus_node_load($nodes) {
   // Make sure we only load Disqus on nodes of the desired types.
   $disqustypes = variable_get('disqus_nodetypes', array());
 
